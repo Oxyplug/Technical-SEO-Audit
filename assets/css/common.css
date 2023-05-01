@@ -1,0 +1,179 @@
+:root {
+  --oxyplug-primary-color: #175d96;
+  --oxyplug-alpha-primary-color-2: rgba(23, 93, 150, 0.2);
+  --oxyplug-secondary-color: #0fa34c;
+  --oxyplug-alpha-secondary-color-5: rgba(15, 163, 76, 0.5);
+
+  --oxyplug-white-color: #fff;
+  --oxyplug-alpha-white-color-9: rgba(255, 255, 255, 0.9);
+
+  --oxyplug-black: #000;
+  --oxyplug-alpha-black-6: rgba(0, 0, 0, 0.6);
+  --oxyplug-alpha-black-3: rgba(0, 0, 0, 0.3);
+  --oxyplug-dark-black: #555;
+  --oxyplug-darker-black: #333;
+
+  --oxyplug-dark-gray: #888;
+  --oxyplug-gray: #aaa;
+  --oxyplug-lighter-gray: #ccc;
+  --oxyplug-lightest-gray: #eee;
+
+  --oxyplug-yellow: #eec600;
+  --oxyplug-alpha-yellow-2: rgba(238, 198, 0, 0.2);
+
+  --oxyplug-red: #e00;
+  --oxyplug-dark-red: #ab0000;
+  --oxyplug-alpha-red-2: rgba(255, 0, 0, 0.2);
+
+  --oxyplug-aqua: #00a7ab;
+  --oxyplug-alpha-aqua-2: rgba(0, 167, 171, 0.2);
+}
+
+/* Montserrat Font Starts Here */
+/* montserrat-regular - latin */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-regular.eot'); /* IE9 Compat Modes */
+  src: local(''),
+       url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-regular.eot?#iefix') format('embedded-opentype'), /* IE6-IE8 */
+       url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-regular.woff2') format('woff2'), /* Super Modern Browsers */
+       url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-regular.woff') format('woff'), /* Modern Browsers */
+       url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-regular.ttf') format('truetype'), /* Safari, Android, iOS */
+       url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-regular.svg#Montserrat') format('svg'); /* Legacy iOS */
+}
+
+/* montserrat-500 - latin */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-500.eot'); /* IE9 Compat Modes */
+  src: local(''),
+       url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-500.eot?#iefix') format('embedded-opentype'), /* IE6-IE8 */
+       url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-500.woff2') format('woff2'), /* Super Modern Browsers */
+       url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-500.woff') format('woff'), /* Modern Browsers */
+       url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-500.ttf') format('truetype'), /* Safari, Android, iOS */
+       url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-500.svg#Montserrat') format('svg'); /* Legacy iOS */
+}
+
+/* montserrat-700 - latin */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-700.eot'); /* IE9 Compat Modes */
+  src: local(''),
+       url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-700.eot?#iefix') format('embedded-opentype'), /* IE6-IE8 */
+       url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-700.woff2') format('woff2'), /* Super Modern Browsers */
+       url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-700.woff') format('woff'), /* Modern Browsers */
+       url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-700.ttf') format('truetype'), /* Safari, Android, iOS */
+       url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-700.svg#Montserrat') format('svg'); /* Legacy iOS */
+}
+
+/* montserrat-italic - latin */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-italic.eot'); /* IE9 Compat Modes */
+  src: local(''),
+       url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-italic.eot?#iefix') format('embedded-opentype'), /* IE6-IE8 */
+       url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-italic.woff2') format('woff2'), /* Super Modern Browsers */
+       url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-italic.woff') format('woff'), /* Modern Browsers */
+       url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-italic.ttf') format('truetype'), /* Safari, Android, iOS */
+       url('chrome-extension://__MSG_@@extension_id__/assets/fonts/montserrat-v25-latin-italic.svg#Montserrat') format('svg'); /* Legacy iOS */
+}
+/* Montserrat Font Ends Here */
+
+.oxyplug-tech-seo-h1 {
+  margin: 0 0 10px 0;
+  font-weight: 500;
+  font-size: 19px;
+  border-radius: 3px;
+  text-align: center;
+  background-color: var(--oxyplug-white-color);
+  padding: 8px;
+  color: var(--oxyplug-secondary-color);
+  border: 2px solid var(--oxyplug-secondary-color);
+  user-select: none;
+}
+
+/* Modal Font Starts Here */
+.oxyplug-modal {
+  display: none;
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100%;
+  overflow: auto;
+  background-color: var(--oxyplug-alpha-black-6);
+  direction: ltr;
+}
+.oxyplug-modal-content {
+  background-color: var(--oxyplug-white-color);
+  margin: auto auto 15px auto;
+  padding: 10px 10px 5px 10px;
+  border: 1px solid var(--oxyplug-dark-gray);
+  width: 90%;
+  position: relative;
+  border-radius: 3px;
+}
+.oxyplug-modal-content h1 {
+  margin-right: 24px;
+}
+.oxyplug-modal-content ul {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  font-weight: 500;
+  font-size: 1.2em;
+  line-height: 1.1em;
+}
+.oxyplug-modal-content ul li {
+  margin-bottom: 5px;
+  background: var(--oxyplug-lightest-gray);
+  padding: 8px;
+  position: relative;
+}
+.oxyplug-modal-content ul li span {
+  width: 24px;
+  height: 24px;
+  display: inline-block;
+  text-align: center;
+  border-radius: 50%;
+  padding-top: 4px;
+  margin-right: 5px;
+  color: var(--oxyplug-white-color);
+}
+.oxyplug-modal-content ul li span.issue-number {
+  background: var(--oxyplug-dark-red);
+}
+.oxyplug-modal-content ul li span.info {
+  background: var(--oxyplug-aqua);
+}
+.oxyplug-modal-content ul li span.warning {
+  background: var(--oxyplug-yellow);
+}
+.oxyplug-modal-close {
+  color: var(--oxyplug-gray);
+  float: right;
+  font-size: 24px;
+  font-weight: bold;
+  line-height: 0;
+  position: absolute;
+  right: 10px;
+  top: 30px;
+}
+.oxyplug-modal-close:hover,
+.oxyplug-modal-close:focus {
+  color: var(--oxyplug-black);
+  text-decoration: none;
+  cursor: pointer;
+}
+/* Modal Font Ends Here */

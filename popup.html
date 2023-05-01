@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="stylesheet" href="assets/css/common.css">
+  <link rel="stylesheet" href="assets/css/popup.css">
+  <title>Oxyplug - Technical SEO Audit</title>
+</head>
+<body>
+
+<div id="wrapper">
+
+  <h1 class="oxyplug-tech-seo-h1">Oxyplug - Technical SEO Audit</h1>
+
+  <nav class="oxyplug-section">
+    <button class="button button-active oxyplug-icon-home" data-target="home"></button>
+    <button class="button oxyplug-icon-cog" data-target="settings"></button>
+    <button class="button oxyplug-icon-info" data-target="learn"></button>
+    <a href="https://oxyplug.com" target="_blank">OxyPlug.com</a>
+  </nav>
+
+  <div id="oxyplug-modal-message" class="oxyplug-modal">
+    <div class="oxyplug-modal-content">
+      <span class="oxyplug-modal-close">&times;</span>
+      <h1 class="oxyplug-tech-seo-h1">List of issues</h1>
+      <ul></ul>
+    </div>
+  </div>
+
+  <div id="content">
+
+    <div id="home" class="oxyplug-section">
+      <button id="start" class="button button-primary">Start!</button>
+      <div id="oxyplug-issue-list">
+        <div id="oxyplug-is-processing"></div>
+        <div class="oxyplug-tabs">
+          <button id="all-issue" class="button button-small">
+            All<span>0</span>
+          </button>
+          <button id="src-issue" class="button button-small">
+            Src<span>0</span>
+          </button>
+          <button id="alt-issue" class="button button-small">
+            Alt<span>0</span>
+          </button>
+          <button id="width-issue" class="button button-small">
+            Width<span>0</span>
+          </button>
+          <button id="height-issue" class="button button-small">
+            Height<span>0</span>
+          </button>
+          <button id="rendered-size-issue" class="button button-small">
+            Rendered Size<span>0</span>
+          </button>
+          <button id="aspect-ratio-issue" class="button button-small">
+            Aspect Ratio<span>0</span>
+          </button>
+          <button id="filesize-issue" class="button button-small">
+            Filesize<span>0</span>
+          </button>
+          <button id="load-fails-issue" class="button button-small">
+            Load Fails<span>0</span>
+          </button>
+          <button id="next-gen-formats-issue" class="button button-small">
+            Next Gen Formats<span>0</span>
+          </button>
+          <button id="lazy-load-issue" class="button button-small">
+            Lazy Load<span>0</span>
+          </button>
+          <button id="lcp-issue" class="button button-small">
+            LCPs<span>0</span>
+          </button>
+        </div>
+        <ul></ul>
+      </div>
+    </div>
+
+    <div id="settings" class="oxyplug-section">
+      <label for="oxyplug-max-image-filesize">Max Image Filesize (KB)</label>
+      <input id="oxyplug-max-image-filesize" type="number" min="1" max="2000">
+      <div class="h-separator"></div>
+
+      <label for="oxyplug-max-image-alt">Max Image Alt (Characters)</label>
+      <input id="oxyplug-max-image-alt" type="number" min="1" max="256">
+      <div class="h-separator"></div>
+
+      <label for="oxyplug-x-color">X Color</label>
+      <input id="oxyplug-x-color" type="color">
+    </div>
+
+    <div id="learn" class="oxyplug-section">
+      <h2>Learn More</h2>
+      <ul>
+        <li>Without src attribute!</li>
+        <li>Without width attribute!</li>
+        <li>Without height attribute!</li>
+        <li>Without alt attribute!</li>
+        <li>
+          The alt attribute length is more than X characters!
+          <a href="https://oxyplug.com#1" target="_blank">Learn More</a>
+        </li>
+        <li>
+          The rendered image dimensions don't equal the original image dimensions!
+          <a href="https://oxyplug.com#2" target="_blank">Learn More</a>
+        </li>
+        <li>
+          The aspect-ratio of the rendered image doesn't equal the aspect-ratio of the original image!
+          <a href="https://oxyplug.com#3" target="_blank">Learn More</a>
+        </li>
+        <li>
+          The image filesize is bigger than X KB
+          <a href="https://oxyplug.com#4" target="_blank">Learn More</a>
+        </li>
+        <li>
+          The image fails to load with http status code of X
+          <a href="https://oxyplug.com#5" target="_blank">Learn More</a>
+        </li>
+        <li>
+          The next-gen (WebP, AVIF) is not provided!
+          <a href="https://oxyplug.com#6" target="_blank">Learn More</a>
+        </li>
+        <li>
+          The loading attribute is not set!
+          <a href="https://oxyplug.com#7" target="_blank">Learn More</a>
+        </li>
+        <li>
+          The loading attribute doesn't equal `lazy`!
+          <a href="https://oxyplug.com#8" target="_blank">Learn More</a>
+        </li>
+        <li>
+          LCP => This just shows the big image(s)
+          <a href="https://oxyplug.com#9" target="_blank">Learn More</a>
+        </li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<script src="assets/js/common.js"></script>
+<script src="assets/js/popup.js"></script>
+
+</body>
+</html>
