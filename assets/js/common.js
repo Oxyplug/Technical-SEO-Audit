@@ -78,17 +78,22 @@ class Common {
     messages.forEach((message, index) => {
       const li = document.createElement('li');
       const span = document.createElement('span');
-      span.classList.add('issue-number');
 
-      if (Array.isArray(issueTypes) && issueTypes.length) {
-        if (['nextGenFormatsIssue', 'lazyLoadIssue'].includes(issueTypes[index])) {
-          span.classList.add('warning');
-        } else if (issueTypes[index] === 'lcpIssue') {
-          span.classList.add('info');
+      if (issueTypes === 'info') {
+        span.classList.add(issueTypes);
+        span.innerText = 'i';
+      } else {
+        span.classList.add('issue-number');
+        if (Array.isArray(issueTypes) && issueTypes.length) {
+          if (['nextGenFormatsIssue', 'lazyLoadIssue'].includes(issueTypes[index])) {
+            span.classList.add('warning');
+          } else if (issueTypes[index] === 'lcpIssue') {
+            span.classList.add('info');
+          }
         }
+        span.innerText = index + 1;
       }
 
-      span.innerText = index + 1;
       li.append(span, message);
       ul.append(li);
     });

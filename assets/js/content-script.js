@@ -78,8 +78,8 @@ class Audit {
         divX.insertAdjacentElement('afterbegin', img);
 
         const spanComputedStyle = getComputedStyle(spanX);
-        const aaa = spanComputedStyle.fontSize;
-        const fontSize = aaa.replace(/px$/, '');
+        const spanFontSize = spanComputedStyle.fontSize;
+        const fontSize = spanFontSize.replace(/px$/, '');
         const imgBigger = Math.min(parseInt(imgWidth), parseInt(imgHeight));
         if (fontSize > imgBigger) {
           spanX.style.fontSize = imgBigger + 'px';
@@ -115,8 +115,18 @@ class Audit {
     ] = Array(11).fill(0);
 
     let index = 1;
+
+    const oxyplugTechSeoExclusions = await getLocalStorage('oxyplug_tech_seo_exclusions');
     for (let img of imgs) {
-      if (Audit.dontTryMore.indexOf(img) === -1) {
+
+      let excluded = false;
+      if (oxyplugTechSeoExclusions && oxyplugTechSeoExclusions[location.host]) {
+        if (oxyplugTechSeoExclusions[location.host].indexOf(img.src) !== -1) {
+          excluded = true;
+        }
+      }
+
+      if (Audit.dontTryMore.indexOf(img) === -1 && excluded === false) {
         img.dataset.oxyplug_tech_i = index++;
         if (await Audit.src(img) === false) srcIssuesCount++;
         if (await Audit.alt(img) === false) altIssuesCount++;

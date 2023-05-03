@@ -30,15 +30,23 @@
 .oxyplug-icon-home:before {
   content: "\e900";
 }
+
 .oxyplug-icon-cog:before {
   content: "\e994";
 }
+
 .oxyplug-icon-info:before {
   content: "\ea0c";
 }
+
 .oxyplug-icon-new-tab:before {
   content: "\ea7e";
 }
+
+.oxyplug-icon-exclude:before {
+  content: "\e901";
+}
+
 /* Font Icon Ends Here */
 
 body,
@@ -54,9 +62,11 @@ button {
   height: calc(100% - var(--h-space));
   padding-top: var(--h-space);
 }
+
 .oxyplug-modal-content ul li span {
   line-height: 22px;
 }
+
 /* Modal Ends Here */
 
 /* Main Starts Here */
@@ -85,6 +95,7 @@ label {
   border: none;
   background-color: var(--oxyplug-lighter-gray);
 }
+
 .button-small {
   padding: 6px 7px 5px;
   font-size: 1em;
@@ -141,6 +152,7 @@ nav > a {
   justify-content: center;
   align-items: center;
 }
+
 .h-separator::after {
   content: "";
   display: block;
@@ -148,6 +160,7 @@ nav > a {
   height: 3px;
   background-color: var(--oxyplug-secondary-color);
 }
+
 #oxyplug-is-processing {
   display: none;
   border: 30px solid var(--oxyplug-primary-color);
@@ -160,55 +173,54 @@ nav > a {
   animation: circulate 1s linear infinite;
   margin: auto;
 }
+
 @-webkit-keyframes circulate {
-  0% { -webkit-transform: rotate(0deg); }
-  100% { -webkit-transform: rotate(360deg); }
+  0% {
+    -webkit-transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform: rotate(360deg);
+  }
 }
+
 @keyframes circulate {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
+
 /* Main Ends Here */
 
 /* Home Page Starts Here */
 #start {
   margin-bottom: 8px;
 }
-#oxyplug-issue-list ul {
-  margin: 0;
-  padding: 0;
-  background-color: var(--oxyplug-gray);
-  border-radius: 3px;
-  overflow-y: auto;
-  max-height: 250px;
-  transition: height 0.3s;
-}
-#oxyplug-issue-list ul li {
-  padding: 3px 10px 6px 5px;
-  margin-bottom: 1px;
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  border-left: 0 solid var(--oxyplug-secondary-color);
-  transition: border-left 0.2s;
-}
-#oxyplug-issue-list ul li:nth-of-type(odd) {
-  background-color: var(--oxyplug-darker-black);
-}
-#oxyplug-issue-list ul li:nth-of-type(even) {
-  background-color: var(--oxyplug-dark-black);
-}
+
 #oxyplug-issue-list ul li:hover,
 #oxyplug-issue-list ul li:active,
 #oxyplug-issue-list ul li.active {
   border-left-width: 3px;
 }
+
 #oxyplug-issue-list ul li a {
   color: var(--oxyplug-secondary-color);
-  margin-right: 5px;
+  margin-right: 3px;
 }
+
+#oxyplug-issue-list ul li button {
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--oxyplug-red);
+  padding: 0;
+  margin-right: 5px;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
 /* Home Page Ends Here */
 
 /* Settings Page Starts Here */
@@ -221,19 +233,24 @@ nav > a {
   width: 80px;
   display: block;
 }
+
 #oxyplug-x-color {
   display: block;
 }
+
 .oxyplug-tabs {
   display: none;
   margin-bottom: 5px;
 }
+
 .oxyplug-tabs > button {
   margin-bottom: 3px;
 }
+
 .oxyplug-tabs > button.active {
   background-color: var(--oxyplug-dark-black);
 }
+
 .oxyplug-tabs > button > span {
   background: rgba(23, 93, 150, 0.2);
   font-size: 0.9em;
@@ -244,28 +261,53 @@ nav > a {
   line-height: 2;
   margin-left: 7px;
 }
+
 .oxyplug-tabs > button.active > span {
   background: var(--oxyplug-primary-color);
 }
+
 .oxyplug-tabs > button > span.has-issue {
   background: var(--oxyplug-alpha-red-2);
 }
+
 .oxyplug-tabs > button.active > span.has-issue {
   background: var(--oxyplug-red);
 }
+
 .oxyplug-tabs > button > span.has-issue.warning {
   background: var(--oxyplug-alpha-yellow-2);
 }
+
 .oxyplug-tabs > button.active > span.has-issue.warning {
   background: var(--oxyplug-yellow);
 }
+
 .oxyplug-tabs > button > span.has-issue.info {
   background: var(--oxyplug-alpha-aqua-2);
 }
+
 .oxyplug-tabs > button.active > span.has-issue.info {
   background: var(--oxyplug-aqua);
 }
+
 /* Settings Page Ends Here */
+
+/* Exclusions Page Starts Here */
+#exclusions h2 {
+  margin: 0 0 10px 0;
+  color: #555;
+  border-bottom: 1px solid #aaa;
+}
+
+#exclusions p {
+  margin: 0 0 0 3px;
+}
+
+#exclusions ul li {
+  cursor: pointer;
+}
+
+/* Exclusions Page Ends Here */
 
 /* Info/LearnMore Page Starts Here */
 #learn h2 {
@@ -292,6 +334,7 @@ nav > a {
 #learn a:visited {
   color: #8d63b3;
 }
+
 /* Info/LearnMore Page Ends Here */
 
 /* Reset Starts Here */
@@ -304,4 +347,5 @@ nav > a {
   line-height: 1;
   font-size: 2em;
 }
+
 /* Reset Ends Here */

@@ -67,6 +67,30 @@ class Popup {
       }
     }
 
+    // Get exclusions for exclusions tab
+    const p = document.createElement('p');
+    p.innerText = 'No exclusions!';
+
+    const exclusions = await getLocalStorage('oxyplug_tech_seo_exclusions');
+    if (exclusions && exclusions[currentHost] && exclusions[currentHost].length) {
+      exclusions[currentHost].forEach((exclusion, index) => {
+        const li = document.createElement('li');
+        li.innerText = exclusion;
+        li.onclick = async () => {
+          exclusions[currentHost].splice(index, 1);
+          await chrome.storage.local.set({oxyplug_tech_seo_exclusions: exclusions});
+          li.remove();
+
+          if (!document.querySelector('#exclusions ul li')) {
+            document.querySelector('#exclusions').append(p);
+          }
+        };
+        document.querySelector('#exclusions ul').append(li);
+      });
+    } else {
+      document.querySelector('#exclusions').append(p);
+    }
+
     // Start Analyzing
     // Popup.start = document.getElementById('start');
     this.start.addEventListener('click', (e) => {
@@ -291,7 +315,57 @@ class Popup {
         }
 
         if (!liExists) {
-          const a = document.createElement('a');
+          // Exclude image button
+          const excludeButton = document.createElement('button');
+          excludeButton.classList.add('oxyplug-icon-exclude');
+          excludeButton.onclick = async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const parent = e.target.parentNode;
+            const currentHost = await Popup.getCurrentHost();
+            if (Popup.issues && Popup.issues[currentHost]) {
+              const item = Popup.issues[currentHost]['issues'][parent.dataset.target];
+
+              if (item) {
+                // Exclude src
+                const exclusion = item['url'];
+                let oxyplugTechSeoExclusions = await getLocalStorage('oxyplug_tech_seo_exclusions');
+                if (oxyplugTechSeoExclusions) {
+                  if (oxyplugTechSeoExclusions[currentHost]) {
+                    oxyplugTechSeoExclusions[currentHost].push(exclusion);
+                  } else {
+                    oxyplugTechSeoExclusions = {[currentHost]: [exclusion]};
+                  }
+                } else {
+                  oxyplugTechSeoExclusions = {[currentHost]: [exclusion]};
+                }
+                await chrome.storage.local.set({oxyplug_tech_seo_exclusions: oxyplugTechSeoExclusions});
+
+                // Remove exclusions from localstorage and list
+                const issueTypes = item['issueTypes'];
+                issueTypes.forEach((issueType) => {
+                  const key = issueType.replace(/([A-Z])/g, '-$1').toLowerCase();
+                  Popup.issues[currentHost]['count'][key] -= 1;
+                  document.querySelector(`#${key} .has-issue`).innerText = Popup.issues[currentHost]['count'][key];
+                });
+                delete Popup.issues[currentHost]['issues'][parent.dataset.target];
+                await chrome.storage.local.set({oxyplug_tech_seo_issues: Popup.issues});
+
+                // Decrease all-issue
+                const allIssueEl = document.querySelector('#all-issue .has-issue');
+                allIssueEl.innerText = parseInt(allIssueEl.innerText) - 1;
+              }
+            }
+            parent.remove();
+            alert(
+              "This image src got excluded and won't be scanned again.\n" +
+              "You can include it again in exclusions tab.\n" +
+              "It is visible after closing/reopening the extension."
+            );
+          };
+          li.prepend(excludeButton);
+
+          // Make complete src to be able to show in new tab
           if (!completeSrc.startsWith('data:image')) {
             if (!completeSrc.startsWith('http')) {
               const currentTabUrl = new URL(Popup.currentTab.url);
@@ -303,6 +377,8 @@ class Popup {
             completeSrc = currentPageUrl.toString();
           }
 
+          // Open in new tab
+          const a = document.createElement('a');
           if (completeSrc.startsWith('data:image')) {
             // TODO: Commented out for security reasons. Maybe later there would be a workaround.
             /*a.onclick = (e) => {

@@ -9,21 +9,26 @@
   z-index: 9999;
   height: 100%;
 }
+
 .oxyplug-modal-content {
   top: 30%;
 }
-@media(min-width: 768px) {
+
+@media (min-width: 768px) {
   .oxyplug-modal-content {
     width: 714px;
   }
 }
+
 .oxyplug-modal-content h1 {
   font-size: 24px;
 }
+
 .oxyplug-modal-content ul li {
   text-align: left;
   direction: ltr;
 }
+
 /* Modal Ends Here */
 
 .oxyplug-tech-seo-highlight {
