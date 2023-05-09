@@ -63,12 +63,12 @@ class Audit {
         });
 
         // Show "Click for more details..."
-        spanX.addEventListener('mouseenter',() => {
+        spanX.addEventListener('mouseenter', () => {
           spanX.classList.add('hovered');
         });
 
         // Hide "Click for more details..."
-        spanX.addEventListener('mouseleave',() => {
+        spanX.addEventListener('mouseleave', () => {
           spanX.classList.remove('hovered');
         });
 
@@ -127,7 +127,7 @@ class Audit {
       }
 
       if (Audit.dontTryMore.indexOf(img) === -1 && excluded === false) {
-        img.dataset.oxyplug_tech_i = index++;
+        img.dataset.oxyplug_tech_i = String(index++);
         if (await Audit.src(img) === false) srcIssuesCount++;
         if (await Audit.alt(img) === false) altIssuesCount++;
         if (await Audit.width(img) === false) widthIssuesCount++;
@@ -319,8 +319,8 @@ class Audit {
         return await checkSizes(imgNaturalWidth, imgNaturalHeight, newImg, img);
       } catch (e) {
         Audit.dontTryMore.push(e.currentSrc);
-        console.log('Failed to load image: ', e);
-        console.dir(e);
+        // TODO: Remove! console.log('Failed to load image: ', e);
+        //  console.dir(e);
       }
     } else {
       return await checkSizes(imgNaturalWidth, imgNaturalHeight, img);
@@ -469,6 +469,7 @@ class ContentScript {
   static lazyImgs = [];
   static lazyTries = [];
   static scrollables = [];
+  static scrollableIndex = 0;
 
   /**
    * Init
@@ -516,139 +517,253 @@ class ContentScript {
       ) {
         img.classList.add(`oxyplug-tech-seo-lazy-${index}`);
         ContentScript.lazyImgs.push(img);
-        // TODO: Remove!
-        console.log(img);
       }
     }
   }
 
   static async markScrollables() {
-    const allElements = document.querySelectorAll('body *');
+    const allElements = document.querySelectorAll('body *:not(script, style, link, meta)');
     for (let e = 0; e < allElements.length; e++) {
-      const scrollableX = allElements[e].scrollTop > 0;
-      const scrollableY = allElements[e].scrollLeft > 0;
+      const scrollableX = allElements[e].clientWidth < allElements[e].scrollWidth;
+      const scrollableY = allElements[e].clientHeight < allElements[e].scrollHeight;
       if (scrollableX || scrollableY) {
+        let className;
         if (scrollableX && scrollableY) {
-          allElements[e].classList.add('oxyplug-tech-seo-scrollable-xy');
+          className = 'oxyplug-tech-seo-scrollable-xy';
         } else if (scrollableX) {
-          allElements[e].classList.add('oxyplug-tech-seo-scrollable-x');
+          className = 'oxyplug-tech-seo-scrollable-x';
         } else if (scrollableY) {
-          allElements[e].classList.add('oxyplug-tech-seo-scrollable-y');
+          className = 'oxyplug-tech-seo-scrollable-y';
         }
-
+        allElements[e].classList.add(className);
         ContentScript.scrollables.push(allElements[e]);
       }
     }
-
-    ContentScript.scrollables.reverse();
   }
 
+  // TODO: Decide!
   static async isInViewport(elem, callback, options = {}) {
-      return new IntersectionObserver(entries => {
-          entries.forEach(entry => callback(entry));
-      }, options).observe(elem);
+    return new IntersectionObserver(entries => {
+      entries.forEach(entry => callback(entry));
+    }, options).observe(elem);
   }
 
   /**
-   * Load lazy images by going down and up
+   * Load lazy images by scrolling the page
    * @returns {Promise<void>}
    */
-  static async downUp() {
-    // TODO: Change intervals depending on how many images there are on the whole page
-    let waitMore = true;
-    const downUpInterval = 10; // TODO: 80
-    const downUpStep = -100; // TODO: -20
-    const waitSeconds = 1000;
+  static async scrollPage() {
+    const speed = 25;
+    let scrollVerticallyId;
+    const body = document.body;
+    const startTop = body.scrollTop;
+
+    // Go to top to start scrolling
+    await window.scroll({top: 0});
 
     // Down
-    let lastScrollY = -1;
-    const downTimer = setInterval(async () => {
-      lastScrollY = window.scrollY;
-      window.scrollBy(0, Math.abs(downUpStep));
-
-      if (lastScrollY == window.scrollY) {
-        clearInterval(downTimer);
-
-        // Load scrollables like carousels to load lazy images
-        await ContentScript.markScrollables();
-
-        // Up
-        const upTimer = setInterval(() => {
-          // Load lazy images inside scrollables by scrolling
-          /*let scrollableFinished = false;
-          requestIdleCallback(async () => {
-            for (let s = 0; s < s < 5 && ContentScript.scrollables.length; s++) {
-              const scrollable = ContentScript.scrollables[s];
-              await ContentScript.isInViewport(scrollable, element => {
-                if (element.isIntersecting) {
-                  if ([...element.classList].includes('oxyplug-tech-seo-scrollable-xy')) {
-
-                  }
-                  delete ContentScript.scrollables[s];
-                }
-              }, {root: null, threshold: 1});
-            }
-            scrollableFinished = true;
-          });*/
-
-          // Scroll up the page
-          if (true || scrollableFinished) {
-            lastScrollY = window.scrollY;
-            window.scrollBy(0, downUpStep);
-            if (lastScrollY == window.scrollY) {
-              clearInterval(upTimer);
-              waitMore = false;
-            }
-          }
-
-        }, downUpInterval);
+    const scrollForwardVertically = () => {
+      const shouldContinue = body.clientHeight + body.scrollTop < body.scrollHeight - 1;
+      if (shouldContinue) {
+        body.scrollTop += speed;
+        scrollVerticallyId = requestAnimationFrame(scrollForwardVertically);
+      } else {
+        cancelAnimationFrame(scrollVerticallyId);
+        scrollBackwardVertically();
       }
-    }, downUpInterval);
+    };
+
+    // Up
+    const scrollBackwardVertically = () => {
+      const shouldContinue = body.scrollTop > 1;
+      if (shouldContinue) {
+        body.scrollTop -= speed;
+        requestAnimationFrame(scrollBackwardVertically);
+      }
+    };
+
+    // Start scrolling
+    scrollForwardVertically();
 
     // Wait to reach bottom
-    while (waitMore) {
-      await new Promise(r => setTimeout(r, waitSeconds));
+    await new Promise(resolve => {
+      const checkIfScrolledToBottom = setInterval(() => {
+        const currentTop = body.scrollTop;
+        const reachedBottom = currentTop === startTop || currentTop + body.clientHeight === body.scrollHeight;
+        if (reachedBottom) {
+          clearInterval(checkIfScrolledToBottom);
+          resolve();
+        }
+      }, 1000);
+    });
+  }
+
+  /**
+   * Load lazy images by scrolling scrollable sections
+   * @returns {Promise<void>}
+   */
+  static async scrollSections() {
+    // TODO: Add a setting for rtl layouts
+    // TODO: Maybe merge scroll functions into ONE
+
+    // Scroll horizontally
+    let scrollHorizontallyId;
+    const scrollForwardHorizontally = (scrollable, maxScroll, speed, rtl = false) => {
+      // Go to the section
+      const scrollableY = scrollable.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo(0, scrollableY);
+
+      let forward = true;
+      if (rtl) {
+        if (Math.abs(scrollable.scrollLeft) < maxScroll) {
+          scrollable.scrollLeft -= speed;
+        } else {
+          forward = false;
+        }
+      } else {
+        if (scrollable.scrollLeft < maxScroll) {
+          scrollable.scrollLeft += speed;
+        } else {
+          forward = false;
+        }
+      }
+
+      if (forward) {
+        scrollHorizontallyId = requestAnimationFrame(() => scrollForwardHorizontally(scrollable, maxScroll, speed));
+      } else {
+        cancelAnimationFrame(scrollHorizontallyId);
+        scrollBackwardHorizontally(scrollable, 1, speed, rtl);
+      }
+    }
+    const scrollBackwardHorizontally = (scrollable, maxScroll, speed, rtl) => {
+      if (rtl) {
+        if (scrollable.scrollLeft < maxScroll) {
+          scrollable.scrollLeft += speed;
+          requestAnimationFrame(() => scrollBackwardHorizontally(scrollable, maxScroll, speed, rtl));
+          return;
+        }
+      } else {
+        if (scrollable.scrollLeft > maxScroll) {
+          scrollable.scrollLeft -= speed;
+          requestAnimationFrame(() => scrollBackwardHorizontally(scrollable, maxScroll, speed, rtl));
+          return;
+        }
+      }
+
+      if (ContentScript.scrollables.length) {
+        const nextScrollable = ContentScript.scrollables[++ContentScript.scrollableIndex];
+        if (nextScrollable === undefined) {
+          ContentScript.scrollables = [];
+        } else {
+          const maxScrollWithTolerance = scrollable.scrollWidth - scrollable.clientWidth - 1;
+          scrollForwardHorizontally(nextScrollable, maxScrollWithTolerance, speed, rtl);
+        }
+      }
     }
 
-    // TODO: Remove!
-    /*window.scrollTo({
-      top: document.body.scrollHeight,
-      behavior: 'smooth'
+    // Scroll vertically
+    let scrollVerticallyId;
+    const scrollForwardVertically = (scrollable, maxScroll, speed) => {
+      // Go to the section
+      const scrollableY = scrollable.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo(0, scrollableY);
+
+      let forward = true;
+      if (scrollable.scrollTop < maxScroll) {
+        scrollable.scrollTop += speed;
+      } else {
+        forward = false;
+      }
+
+      if (forward) {
+        scrollVerticallyId = requestAnimationFrame(() => scrollForwardVertically(scrollable, maxScroll, speed));
+      } else {
+        cancelAnimationFrame(scrollVerticallyId);
+        scrollBackwardVertically(scrollable, 1, speed);
+      }
+    }
+    const scrollBackwardVertically = (scrollable, maxScroll, speed) => {
+      if (scrollable.scrollTop > maxScroll) {
+        scrollable.scrollTop -= speed;
+        requestAnimationFrame(() => scrollBackwardVertically(scrollable, maxScroll, speed));
+        return;
+      }
+
+      if (ContentScript.scrollables.length) {
+        const nextScrollable = ContentScript.scrollables[++ContentScript.scrollableIndex];
+        if (nextScrollable === undefined) {
+          ContentScript.scrollables = [];
+        } else {
+          const maxScrollWithTolerance = scrollable.scrollHeight - scrollable.clientHeight - 1;
+          // TODO: Check if it has
+          //  classList.includes('oxyplug-tech-seo-scrollable-x')  OR  classList.includes('oxyplug-tech-seo-scrollable-y')
+          //  to call the appropriate function
+          scrollForwardVertically(nextScrollable, maxScrollWithTolerance, speed);
+        }
+      }
+    }
+
+    return new Promise(resolve => {
+      // Iterate over scrollables to scroll
+      ContentScript.scrollableIndex = 0;
+      const scrollable = ContentScript.scrollables[ContentScript.scrollableIndex];
+      if (scrollable) {
+        const classList = [...scrollable.classList];
+        const speed = 50;
+
+        // TODO: Add `oxyplug-tech-seo-scrollable-xy` later since it needs calculations for scrolling both vertically and horizontally
+        // TODO: Add a setting to set max image loads in order not to have unlimited scrolling...
+        // TODO: Add a setting scrolling speed
+
+        if (classList.includes('oxyplug-tech-seo-scrollable-x')) {
+          scrollable.scrollLeft = 0;
+          const maxScrollWithTolerance = scrollable.scrollWidth - scrollable.clientWidth - 1;
+          scrollForwardHorizontally(scrollable, maxScrollWithTolerance, speed);
+        } else if (classList.includes('oxyplug-tech-seo-scrollable-y')) {
+          scrollable.scrollTop = 0;
+          const maxScrollWithTolerance = scrollable.scrollHeight - scrollable.clientHeight - 1;
+          scrollForwardVertically(scrollable, maxScrollWithTolerance, speed);
+        }
+      }
+
+      const checkAllScrolled = setInterval(() => {
+        if (ContentScript.scrollables.length === 0) {
+          // Resolve the promise when all the scrolling has been completed
+          clearInterval(checkAllScrolled);
+          resolve();
+        }
+      }, 1000)
     });
-    await new Promise(r => setTimeout(r, 3000));
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    });*/
   }
 
   static async waitForLazies() {
-    let waitMore = false;
-    ContentScript.lazyImgs.forEach((lazyImg, index) => {
-      if (lazyImg.complete) {
-        ContentScript.lazyImgs.splice(index, 1);
-      } else {
-        if (ContentScript.lazyTries[lazyImg.className] && ContentScript.lazyTries[lazyImg.className] >= 3) {
-          ContentScript.lazyImgs.splice(index, 1);
+    return new Promise(resolve => {
+      const checkImagesLoaded = setInterval(() => {
+        if (ContentScript.lazyImgs.length === 0) {
+          clearInterval(checkImagesLoaded);
+          resolve();
         } else {
-          if (lazyImg.naturalWidth > 1 && lazyImg.naturalHeight > 1) {
-            ContentScript.lazyImgs.splice(index, 1);
-          } else {
-            waitMore = true;
-            if (ContentScript.lazyTries[lazyImg.className]) {
-              ContentScript.lazyTries[lazyImg.className] += 1;
+          for (let i = ContentScript.lazyImgs.length - 1; i >= 0; i--) {
+            const lazyImg = ContentScript.lazyImgs[i];
+            const className = lazyImg.className;
+
+            // Check if it is loaded, to remove it from the array
+            lazyImg.addEventListener('load', function () {
+              if (lazyImg.complete) {
+                ContentScript.lazyImgs.splice(i, 1);
+              }
+            });
+
+            // If it hasn't been loaded for the third time, ignore it
+            if (ContentScript.lazyTries[className] && ContentScript.lazyTries[className] >= 3) {
+              ContentScript.lazyImgs.splice(i, 1);
             } else {
-              ContentScript.lazyTries[lazyImg.className] = 1;
+              ContentScript.lazyTries[className] = ContentScript.lazyTries[className] ? ContentScript.lazyTries[className] + 1 : 1;
             }
           }
         }
-      }
+      }, 1000);
     });
-
-    if (waitMore) {
-      await new Promise(r => setTimeout(r, 3000));
-      await ContentScript.waitForLazies();
-    }
   }
 
   /**
@@ -660,10 +775,13 @@ class ContentScript {
     const imgs = document.querySelectorAll('img');
     await ContentScript.markLazies(imgs);
     if (ContentScript.lazyImgs.length) {
-      await ContentScript.downUp();
-      if (ContentScript.lazyImgs.length) {
-        await ContentScript.waitForLazies();
-      }
+      // Scroll the page
+      await ContentScript.scrollPage();
+
+      // Mark scrollables like carousels and scroll them to load lazy images
+      await ContentScript.markScrollables();
+      await ContentScript.scrollSections();
+      await ContentScript.waitForLazies();
     }
     ContentScript.issues = await Audit.all(imgs);
 

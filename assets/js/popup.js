@@ -379,16 +379,20 @@ class Popup {
 
           // Open in new tab
           const a = document.createElement('a');
+          a.classList.add('oxyplug-icon-new-tab');
           if (completeSrc.startsWith('data:image')) {
-            // TODO: Commented out for security reasons. Maybe later there would be a workaround.
-            /*a.onclick = (e) => {
+            a.onclick = (e) => {
+              e.preventDefault();
               e.stopPropagation();
-
-              const newTab = window.open();
-              newTab.document.body.innerHTML = `<img src="${completeSrc}">`;
-            };*/
+              if (!window.myWindow || window.myWindow.closed) {
+                window.myWindow = window.open('');
+                myWindow.document.write(`<img src="${completeSrc}" />`);
+              } else {
+                window.myWindow.focus();
+              }
+            };
+            li.prepend(a);
           } else {
-            a.classList.add('oxyplug-icon-new-tab');
             a.href = completeSrc;
             a.target = '_blank';
             a.onclick = (e) => {
