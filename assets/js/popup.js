@@ -52,6 +52,14 @@ class Popup {
       });
     });
 
+    // RTL
+    const rtlScrolling = await getLocalStorage('oxyplug_rtl_scrolling');
+    const rtlScrollingEl = document.getElementById('oxyplug-rtl-scrolling');
+    rtlScrollingEl.checked = rtlScrolling ?? false;
+    rtlScrollingEl.addEventListener('change', (el) => {
+      chrome.storage.local.set({oxyplug_rtl_scrolling: el.target.checked});
+    });
+
     // Load issues on the page (From Storage)
     Popup.issues = await getLocalStorage('oxyplug_tech_seo_issues');
     const currentHost = await Popup.getCurrentHost();
