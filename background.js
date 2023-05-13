@@ -23,32 +23,28 @@ class Background {
   static async audit() {
     let loadFails = {};
     let imageFilesizes = {};
+    chrome.webRequest.onHeadersReceived.addListener(async (details) => {
+      if (details.tabId !== Background.currentTab.id) {
+        if (details.statusCode === 200) {
+          let filesize = 0;
 
-    // TODO: Remove!
-    // chrome.webNavigation.onBeforeNavigate.addListener(() => {
-      chrome.webRequest.onHeadersReceived.addListener(async (details) => {
-        if (details.tabId !== Background.currentTab.id) {
-          if (details.statusCode === 200) {
-            let filesize = 0;
+          details.responseHeaders.forEach((item) => {
+            if (item.name.toLowerCase() === 'content-length') {
+              filesize = Number(item.value) / 1000;
+            }
+          });
 
-            details.responseHeaders.forEach((item) => {
-              if (item.name.toLowerCase() === 'content-length') {
-                filesize = Number(item.value) / 1000;
-              }
-            });
-
-            imageFilesizes[details.url] = filesize;
-            await chrome.storage.local.set({oxyplug_image_filesizes: imageFilesizes});
-          } else {
-            loadFails[details.url] = details.statusCode;
-            await chrome.storage.local.set({oxyplug_load_fails: loadFails});
-          }
+          imageFilesizes[details.url] = filesize;
+          await chrome.storage.local.set({oxyplug_image_filesizes: imageFilesizes});
+        } else {
+          loadFails[details.url] = details.statusCode;
+          await chrome.storage.local.set({oxyplug_load_fails: loadFails});
         }
-      },
-      {urls: ["<all_urls>"], types: ['image']},
-      ['responseHeaders']
-      );
-    // });
+      }
+    },
+    {urls: ["<all_urls>"], types: ['image']},
+    ['responseHeaders']
+    );
   };
 
   /**

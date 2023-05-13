@@ -319,8 +319,6 @@ class Audit {
         return await checkSizes(imgNaturalWidth, imgNaturalHeight, newImg, img);
       } catch (e) {
         Audit.dontTryMore.push(e.currentSrc);
-        // TODO: Remove! console.log('Failed to load image: ', e);
-        //  console.dir(e);
       }
     } else {
       return await checkSizes(imgNaturalWidth, imgNaturalHeight, img);
@@ -478,23 +476,6 @@ class ContentScript {
   static async init() {
     await Audit.fillLCPs();
     ContentScript.issues = {};
-
-    /*
-    // TODO: Remove!
-    const oxyplugTechSeoIssues = await getLocalStorage('oxyplug_tech_seo_issues');
-
-    const currentPageUrl = new URL(location.href);
-    const openedByOxyplug = currentPageUrl.searchParams.has('by-oxyplug-tech-seo');
-    if (oxyplugTechSeoIssues && oxyplugTechSeoIssues[location.host] && openedByOxyplug === false) {
-      delete oxyplugTechSeoIssues[location.host];
-    }
-    await chrome.storage.local.set({
-      oxyplug_tech_seo_issues: oxyplugTechSeoIssues,
-      oxyplug_started_once: false,
-      oxyplug_active_url: null,
-      oxyplug_active_filter: 'all-issue',
-    });*/
-
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       if (request.oxyplugStart === true) {
         ContentScript.startAnalyzing();
@@ -541,13 +522,6 @@ class ContentScript {
     }
   }
 
-  // TODO: Decide!
-  static async isInViewport(elem, callback, options = {}) {
-    return new IntersectionObserver(entries => {
-      entries.forEach(entry => callback(entry));
-    }, options).observe(elem);
-  }
-
   /**
    * Load lazy images by scrolling the page
    * @returns {Promise<void>}
@@ -555,17 +529,16 @@ class ContentScript {
   static async scrollPage() {
     const speed = 25;
     let scrollVerticallyId;
-    const body = document.body;
-    const startTop = body.scrollTop;
+    const docEl = document.documentElement;
 
     // Go to top to start scrolling
     await window.scroll({top: 0});
 
     // Down
     const scrollForwardVertically = () => {
-      const shouldContinue = body.clientHeight + body.scrollTop < body.scrollHeight - 1;
+      const shouldContinue = docEl.clientHeight + docEl.scrollTop < docEl.scrollHeight - 1;
       if (shouldContinue) {
-        body.scrollTop += speed;
+        docEl.scrollTop += speed;
         scrollVerticallyId = requestAnimationFrame(scrollForwardVertically);
       } else {
         cancelAnimationFrame(scrollVerticallyId);
@@ -575,9 +548,9 @@ class ContentScript {
 
     // Up
     const scrollBackwardVertically = () => {
-      const shouldContinue = body.scrollTop > 1;
+      const shouldContinue = docEl.scrollTop > 1;
       if (shouldContinue) {
-        body.scrollTop -= speed;
+        docEl.scrollTop -= speed;
         requestAnimationFrame(scrollBackwardVertically);
       }
     };
@@ -588,9 +561,7 @@ class ContentScript {
     // Wait to reach bottom
     await new Promise(resolve => {
       const checkIfScrolledToBottom = setInterval(() => {
-        const currentTop = body.scrollTop;
-        const reachedBottom = currentTop === startTop || currentTop + body.clientHeight === body.scrollHeight;
-        if (reachedBottom) {
+        if (docEl.scrollTop <= 1) {
           clearInterval(checkIfScrolledToBottom);
           resolve();
         }
@@ -603,7 +574,6 @@ class ContentScript {
    * @returns {Promise<void>}
    */
   static async scrollSections() {
-    // TODO: Add a setting for rtl layouts
     // TODO: Maybe merge scroll functions into ONE
 
     // Scroll horizontally
@@ -629,10 +599,10 @@ class ContentScript {
       }
 
       if (forward) {
-        scrollHorizontallyId = requestAnimationFrame(() => scrollForwardHorizontally(scrollable, maxScroll, speed));
+        scrollHorizontallyId = requestAnimationFrame(() => scrollForwardHorizontally(scrollable, maxScroll, speed, rtl));
       } else {
         cancelAnimationFrame(scrollHorizontallyId);
-        scrollBackwardHorizontally(scrollable, 1, speed, rtl);
+        scrollBackwardHorizontally(scrollable, -1, speed, rtl);
       }
     }
     const scrollBackwardHorizontally = (scrollable, maxScroll, speed, rtl) => {
@@ -679,7 +649,7 @@ class ContentScript {
         scrollVerticallyId = requestAnimationFrame(() => scrollForwardVertically(scrollable, maxScroll, speed));
       } else {
         cancelAnimationFrame(scrollVerticallyId);
-        scrollBackwardVertically(scrollable, 1, speed);
+        scrollBackwardVertically(scrollable, -1, speed);
       }
     }
     const scrollBackwardVertically = (scrollable, maxScroll, speed) => {
@@ -695,30 +665,26 @@ class ContentScript {
           ContentScript.scrollables = [];
         } else {
           const maxScrollWithTolerance = scrollable.scrollHeight - scrollable.clientHeight - 1;
-          // TODO: Check if it has
-          //  classList.includes('oxyplug-tech-seo-scrollable-x')  OR  classList.includes('oxyplug-tech-seo-scrollable-y')
-          //  to call the appropriate function
           scrollForwardVertically(nextScrollable, maxScrollWithTolerance, speed);
         }
       }
     }
 
+    const rtl = Boolean(await getLocalStorage('oxyplug_rtl_scrolling'));
     return new Promise(resolve => {
       // Iterate over scrollables to scroll
       ContentScript.scrollableIndex = 0;
       const scrollable = ContentScript.scrollables[ContentScript.scrollableIndex];
       if (scrollable) {
         const classList = [...scrollable.classList];
-        const speed = 50;
+        const speed = 25;
 
         // TODO: Add `oxyplug-tech-seo-scrollable-xy` later since it needs calculations for scrolling both vertically and horizontally
-        // TODO: Add a setting to set max image loads in order not to have unlimited scrolling...
-        // TODO: Add a setting scrolling speed
 
         if (classList.includes('oxyplug-tech-seo-scrollable-x')) {
           scrollable.scrollLeft = 0;
           const maxScrollWithTolerance = scrollable.scrollWidth - scrollable.clientWidth - 1;
-          scrollForwardHorizontally(scrollable, maxScrollWithTolerance, speed);
+          scrollForwardHorizontally(scrollable, maxScrollWithTolerance, speed, rtl);
         } else if (classList.includes('oxyplug-tech-seo-scrollable-y')) {
           scrollable.scrollTop = 0;
           const maxScrollWithTolerance = scrollable.scrollHeight - scrollable.clientHeight - 1;

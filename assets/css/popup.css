@@ -238,6 +238,11 @@ nav > a {
   display: block;
 }
 
+#oxyplug-rtl-scrolling,
+[for="oxyplug-rtl-scrolling"] {
+  vertical-align: middle;
+}
+
 .oxyplug-tabs {
   display: none;
   margin-bottom: 5px;
