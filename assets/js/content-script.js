@@ -563,6 +563,7 @@ class ContentScript {
 
     ContentScript.issues = {};
     Audit.oxyplugLoadFails = await getLocalStorage('oxyplug_load_fails');
+
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       if (request.oxyplugStart === true) {
         ContentScript.startAnalyzing();
@@ -853,6 +854,7 @@ class ContentScript {
         if (nextScrollable === undefined) {
           ContentScript.scrollables = [];
         } else {
+
           // TODO: These are duplicates! one in the first place and second here and there above!!
           const scrollEndPointWithTolerance = nextScrollable.scrollHeight - nextScrollable.clientHeight - 1;
 
@@ -875,6 +877,7 @@ class ContentScript {
         // TODO: Add `oxyplug-tech-seo-scrollable-xy` later since it needs calculations for scrolling both vertically and horizontally
 
         if (classList.includes('oxyplug-tech-seo-scrollable-x')) {
+
           const scrollEndPointWithTolerance = scrollable.scrollWidth - scrollable.clientWidth - 1;
 
           // Scroll to the start point depending on the layout
@@ -882,6 +885,7 @@ class ContentScript {
 
           // Start scrolling
           scrollForwardHorizontally(scrollable, scrollEndPointWithTolerance, rtl);
+
         } else if (classList.includes('oxyplug-tech-seo-scrollable-y')) {
           const scrollEndPointWithTolerance = scrollable.scrollHeight - scrollable.clientHeight - 1;
 
