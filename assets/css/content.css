@@ -1,7 +1,13 @@
+.oxyplug-tech-seo > img {
+  filter: grayscale(100%) brightness(80%) contrast(120%) sepia(30%);
+}
+
 .oxyplug-modal,
+.oxyplug-modal *:not(.oxyplug-modal-close),
 .oxyplug-tech-seo-highlight {
-  font-family: Montserrat, sans-serif;
+  font-family: Montserrat, sans-serif !important;
   font-weight: 500;
+  font-size: 18px;
 }
 
 /* Modal Starts Here */
@@ -27,46 +33,30 @@
 .oxyplug-modal-content ul li {
   text-align: left;
   direction: ltr;
+  font-weight: normal;
+  margin-left: 0;
+  margin-right: 0;
 }
-
 /* Modal Ends Here */
 
 .oxyplug-tech-seo-highlight {
   padding: 0;
   margin: 0;
   color: var(--oxyplug-black);
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   position: absolute;
-  z-index: 2;
+  z-index: 10;
   transform: translate(-50%, -50%);
   font-size: 4em;
   font-weight: bold;
   text-shadow: 1px 1px 1px var(--oxyplug-black), -1px -1px 1px var(--oxyplug-black);
-  background-color: var(--oxyplug-alpha-white-color-9);
-  width: 1em;
-  height: 1em;
-  text-align: center;
+  background-color: var(--oxyplug-alpha-white-color-6);
+  width: 100%;
+  height: 100%;
   line-height: 1;
   border-radius: 3px;
   user-select: none;
   cursor: pointer;
-}
-
-.oxyplug-tech-seo-highlight::before {
-  content: 'Click for more details...';
-  position: absolute;
-  top: -20px;
-  right: -40px;
-  width: 135px;
-  height: 12px;
-  font-size: 11px;
-  direction: ltr;
-  color: var(--oxyplug-red);
-  text-shadow: 0 -1px 1px var(--oxyplug-black), 0 1px 1px var(--oxyplug-black);
-  opacity: 0;
-  transition: opacity 0.1s;
-}
-
-.oxyplug-tech-seo-highlight.hovered::before {
-  opacity: 1;
 }

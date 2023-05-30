@@ -62,11 +62,6 @@ button {
   height: calc(100% - var(--h-space));
   padding-top: var(--h-space);
 }
-
-.oxyplug-modal-content ul li span {
-  line-height: 22px;
-}
-
 /* Modal Ends Here */
 
 /* Main Starts Here */
@@ -234,7 +229,8 @@ nav > a {
   display: block;
 }
 
-#oxyplug-x-color {
+#oxyplug-x-color,
+#oxyplug-x-color-all {
   display: block;
 }
 
