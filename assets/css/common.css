@@ -5,7 +5,7 @@
   --oxyplug-alpha-secondary-color-5: rgba(15, 163, 76, 0.5);
 
   --oxyplug-white-color: #fff;
-  --oxyplug-alpha-white-color-9: rgba(255, 255, 255, 0.9);
+  --oxyplug-alpha-white-color-6: rgba(255, 255, 255, 0.6);
 
   --oxyplug-black: #000;
   --oxyplug-alpha-black-6: rgba(0, 0, 0, 0.6);
@@ -134,10 +134,10 @@
 .oxyplug-modal-content ul li span {
   width: 24px;
   height: 24px;
+  line-height: 24px;
   display: inline-block;
   text-align: center;
   border-radius: 50%;
-  padding-top: 4px;
   margin-right: 5px;
   color: var(--oxyplug-white-color);
 }

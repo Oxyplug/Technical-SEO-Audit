@@ -52,6 +52,24 @@ class Popup {
       });
     });
 
+    // X Color All
+    const xColorAll = await getLocalStorage('oxyplug_x_color_all');
+    const XColorAllEl = document.getElementById('oxyplug-x-color-all');
+    XColorAllEl.value = xColorAll ?? '#0000ff';
+    XColorAllEl.addEventListener('change', (el) => {
+      const isColor = /^#[\dA-F]{6}$/i.test(el.target.value);
+      const xColorAll = isColor ? el.target.value : '#0000ff';
+      chrome.storage.local.set({oxyplug_x_color_all: xColorAll});
+
+      chrome.tabs.sendMessage(Popup.currentTab.id, {newXColorAll: xColorAll}, () => {
+        if (!chrome.runtime.lastError) {
+          console.log('fine');
+        } else {
+          console.log(chrome.runtime.lastError);
+        }
+      });
+    });
+
     // RTL
     const rtlScrolling = await getLocalStorage('oxyplug_rtl_scrolling');
     const rtlScrollingEl = document.getElementById('oxyplug-rtl-scrolling');

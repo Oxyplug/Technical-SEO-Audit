@@ -52,7 +52,7 @@ class Common {
    */
   static async showIssues(messages, issueTypes) {
     const oxyplugMessageId = 'oxyplug-modal-message';
-    let messageModal = document.getElementById('oxyplug-modal-message');
+    let messageModal = document.getElementById(oxyplugMessageId);
 
     if (!messageModal) {
       const div = document.createElement('div');
@@ -68,8 +68,7 @@ class Common {
       document.body.append(div);
 
       // Make modal actions
-      // TODO: Remove this TODO! Decide if this line below makes different in popup and content or not!!!
-      await Common.makeModalActions('oxyplug-modal-message');
+      await Common.makeModalActions(oxyplugMessageId);
     }
 
     messageModal = document.getElementById(oxyplugMessageId);

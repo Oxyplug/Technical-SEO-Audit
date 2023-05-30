@@ -12,7 +12,7 @@ class Audit {
    * @returns {Promise<boolean>}
    */
   static async addToIssues(message, issueType, img) {
-    const src = img.currentSrc;
+    const src = img.currentSrc != '' ? img.currentSrc : img.src;
     const imgComputedStyle = getComputedStyle(img);
 
     const i = img.dataset.oxyplug_tech_i;
@@ -53,29 +53,48 @@ class Audit {
         const left = Math.ceil(imgWidth / 2);
         const top = Math.ceil(imgHeight / 2);
         spanX.style.cssText = `left:${left}px;top:${top}px`;
+        let XColor = await getLocalStorage('oxyplug_x_color');
+        XColor = XColor ? XColor.toString() : '#ff0000';
+        let XColorAll = await getLocalStorage('oxyplug_x_color_all');
+        XColorAll = XColorAll ? XColorAll.toString() : '#0000ff';
+        spanX.style.setProperty('color', XColorAll, 'important');
 
         // Show issues
         spanX.addEventListener('click', async (e) => {
           e.preventDefault();
+
+          // Highlight the target element
+          const highlights = await document.querySelectorAll('.oxyplug-tech-seo-highlighted');
+          await highlights.forEach((highlight) => {
+            highlight.classList.remove('oxyplug-tech-seo-highlighted');
+            highlight.style.setProperty('color', XColorAll, 'important');
+          });
+          spanX.classList.add('oxyplug-tech-seo-highlighted');
+          spanX.style.setProperty('color', XColor, 'important');
+
           const messages = Audit.issues[className] ? Audit.issues[className].messages : [];
           const issueTypes = Audit.issues[className] ? Audit.issues[className].issueTypes : [];
           await Common.showIssues(messages, issueTypes);
-        });
-
-        // Show "Click for more details..."
-        spanX.addEventListener('mouseenter', () => {
-          spanX.classList.add('hovered');
-        });
-
-        // Hide "Click for more details..."
-        spanX.addEventListener('mouseleave', () => {
-          spanX.classList.remove('hovered');
         });
 
         // Wrap img in a div
         divX.append(spanX);
         img.replaceWith(divX);
         divX.insertAdjacentElement('afterbegin', img);
+
+        // Prevent its closest <a> from opening the link and display the issues modal instead
+        let aElement = null;
+        let parent = spanX.parentElement;
+        for (let p = 1; p <= 3 && parent; p++) {
+          if (parent.tagName === 'A') {
+            aElement = parent;
+            break;
+          }
+          parent = parent.parentElement;
+        }
+        if (aElement) {
+          // TODO: Not working!!
+        }
 
         const spanComputedStyle = getComputedStyle(spanX);
         const spanFontSize = spanComputedStyle.fontSize;
@@ -104,15 +123,14 @@ class Audit {
    */
   static async all(imgs) {
     Audit.issues = {};
-    Audit.oxyplugLoadFails = await getLocalStorage('oxyplug_load_fails');
 
     let [
       srcIssuesCount, altIssuesCount, widthIssuesCount,
       heightIssuesCount, renderedSizeIssuesCount,
       aspectRatioIssuesCount, filesizeIssuesCount,
-      loadFailsIssuesCount, nextGenFormatsIssuesCount,
+      loadFailsIssuesCount, nxIssuesCount, nextGenFormatsIssuesCount,
       lazyLoadIssuesCount, LCPsIssuesCount
-    ] = Array(11).fill(0);
+    ] = Array(12).fill(0);
 
     let index = 1;
 
@@ -121,12 +139,20 @@ class Audit {
 
       let excluded = false;
       if (oxyplugTechSeoExclusions && oxyplugTechSeoExclusions[location.host]) {
-        if (oxyplugTechSeoExclusions[location.host].indexOf(img.src) !== -1) {
+        const excludedImage = oxyplugTechSeoExclusions[location.host];
+        if (excludedImage.indexOf(img.src) !== -1 || excludedImage.indexOf(img.currentSrc) !== -1) {
           excluded = true;
         }
       }
 
-      if (Audit.dontTryMore.indexOf(img) === -1 && excluded === false) {
+      // If the <img> is inside <picture> and has various densities/DPRs/dimensions,
+      // it needs to replace the src with currentSrc in order not to load the other images that are for the other DPRs.
+      // For example, when the loaded image is 300x300 with <source> but the <img> has the src of image 100x100.
+      if (img.currentSrc != '') {
+        img.src = img.currentSrc;
+      }
+
+      if (Audit.dontTryMore.indexOf(img.src) === -1 && excluded === false && img.clientHeight > 1 && img.clientWidth > 1) {
         img.dataset.oxyplug_tech_i = String(index++);
         if (await Audit.src(img) === false) srcIssuesCount++;
         if (await Audit.alt(img) === false) altIssuesCount++;
@@ -136,6 +162,7 @@ class Audit {
         if (await Audit.aspectRatio(img) === false) aspectRatioIssuesCount++;
         if (await Audit.filesize(img) === false) filesizeIssuesCount++;
         if (await Audit.loadFails(img) === false) loadFailsIssuesCount++;
+        if (await Audit.nx(img) === false) nxIssuesCount++;
         if (await Audit.nextGenFormats(img) === false) nextGenFormatsIssuesCount++;
         if (await Audit.lazyLoad(img) === false) lazyLoadIssuesCount++;
         if (await Audit.LCP(img) === false) LCPsIssuesCount++;
@@ -151,6 +178,8 @@ class Audit {
      */
     const imgWraps = document.querySelectorAll('.oxyplug-tech-seo:not(.positioned)');
     for (const imgWrap of imgWraps) {
+      // TODO: Merge this with exact the same code somewhere here that is applied after the element is changed
+      //  due to be a lazy image
       const imgWidth = imgWrap.dataset.width;
       const imgHeight = imgWrap.dataset.height;
       imgWrap.classList.add('positioned');
@@ -168,6 +197,7 @@ class Audit {
         'aspect-ratio-issue': aspectRatioIssuesCount,
         'filesize-issue': filesizeIssuesCount,
         'load-fails-issue': loadFailsIssuesCount,
+        'nx-issue': nxIssuesCount,
         'next-gen-formats-issue': nextGenFormatsIssuesCount,
         'lazy-load-issue': lazyLoadIssuesCount,
         'lcp-issue': LCPsIssuesCount,
@@ -299,16 +329,17 @@ class Audit {
 
     let imgNaturalWidth = img.naturalWidth;
     let imgNaturalHeight = img.naturalHeight;
+    const src = img.currentSrc != '' ? img.currentSrc : img.src;
     if (
-      (imgNaturalWidth == 0 || imgNaturalHeight == 0) ||
-      (imgNaturalWidth == 1 && imgNaturalHeight == 1)
+      ((imgNaturalWidth == 0 || imgNaturalHeight == 0) || (imgNaturalWidth == 1 && imgNaturalHeight == 1)) &&
+      !(Audit.oxyplugLoadFails && Audit.oxyplugLoadFails[src])
     ) {
       // Create new img
       const newImg = document.createElement('img');
 
       // Wait for image to load
       newImg.srcset = img.srcset;
-      newImg.src = img.src;
+      newImg.src = src;
       try {
         await Audit.getImage(newImg);
 
@@ -347,10 +378,11 @@ class Audit {
    */
   static async filesize(img) {
     const issueType = 'filesizeIssue';
-    if (img && img.currentSrc) {
+    if (img) {
+      const src = img.currentSrc != '' ? img.currentSrc : img.src;
       const maxImageFilesize = await getLocalStorage('oxyplug_max_image_filesize'); // KB
       const oxyplugImageFilesizes = await getLocalStorage('oxyplug_image_filesizes');
-      if (oxyplugImageFilesizes && oxyplugImageFilesizes[img.currentSrc] && oxyplugImageFilesizes[img.currentSrc] > maxImageFilesize) {
+      if (oxyplugImageFilesizes && oxyplugImageFilesizes[src] && oxyplugImageFilesizes[src] > maxImageFilesize) {
         return await Audit.addToIssues('The image filesize is bigger than ' + maxImageFilesize + ' KB', issueType, img);
       }
     }
@@ -364,10 +396,11 @@ class Audit {
    */
   static async loadFails(img) {
     const issueType = 'loadFailsIssue';
-    if (img && img.currentSrc) {
-      if (Audit.oxyplugLoadFails && Audit.oxyplugLoadFails[img.currentSrc]) {
-        Audit.dontTryMore.push(img.currentSrc);
-        const httpStatusCode = Audit.oxyplugLoadFails[img.currentSrc];
+    if (img) {
+      const src = img.currentSrc != '' ? img.currentSrc : img.src;
+      if (Audit.oxyplugLoadFails && Audit.oxyplugLoadFails[src]) {
+        Audit.dontTryMore.push(src);
+        const httpStatusCode = Audit.oxyplugLoadFails[src];
         return await Audit.addToIssues('The image fails to load with http status code of ' + httpStatusCode, issueType, img);
       }
     }
@@ -375,7 +408,59 @@ class Audit {
     return true;
   };
 
+  /**
+   * Whether the image has image-2x
+   *
+   * @param img
+   * @returns {Promise<boolean>}
+   */
+  static async nx(img) {
+    const issueType = 'nxIssue';
+    if (img) {
+      const src = img.currentSrc != '' ? img.currentSrc : img.src;
+      if (src.toLowerCase().endsWith('.svg')) {
+        return true;
+      }
+
+      let has2x = false;
+      let srcsets = null;
+
+      // <picture srcset="...">
+      const parentElement = img.parentElement;
+      if (parentElement) {
+        const grandParent = parentElement.parentElement;
+        if (grandParent && grandParent.tagName === 'PICTURE') {
+          const sources = grandParent.querySelectorAll('source');
+          if (sources.length) {
+            srcsets = sources[0].getAttribute('srcset');
+          }
+        }
+      }
+
+      // <img srcset="...">
+      if (srcsets == null) {
+        srcsets = img.getAttribute('srcset');
+      }
+
+      if (srcsets) {
+        srcsets = srcsets.split(',').map(srcset => srcset.trim());
+        has2x = srcsets.some(srcset => srcset.endsWith('2x'));
+      }
+
+      if (!has2x) {
+        return await Audit.addToIssues('No 2x image found for DPR 2 devices!', issueType, img);
+      }
+    }
+
+    return true;
+  };
+
   static async nextGenFormats(img) {
+    const src = img.currentSrc != '' ? img.currentSrc : img.src;
+    if (src.toLowerCase().endsWith('.svg')) {
+      return true;
+    }
+
     const issueType = 'nextGenFormatsIssue';
     let parent = img.parentElement;
     if (parent.tagName.toLowerCase() === 'div' && [...parent.classList].includes('oxyplug-tech-seo')) {
@@ -388,7 +473,7 @@ class Audit {
       }
     }
 
-    const extension = img.currentSrc.split('.').pop().toLowerCase();
+    const extension = src.split('.').pop().toLowerCase();
     if (['wepb', 'avif'].includes(extension) || extension.length > 4) {
       return true;
     }
@@ -475,7 +560,10 @@ class ContentScript {
    */
   static async init() {
     await Audit.fillLCPs();
+
     ContentScript.issues = {};
+    Audit.oxyplugLoadFails = await getLocalStorage('oxyplug_load_fails');
+
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       if (request.oxyplugStart === true) {
         ContentScript.startAnalyzing();
@@ -483,6 +571,8 @@ class ContentScript {
         ContentScript.scrollToPoint(request);
       } else if (request.newXColor) {
         ContentScript.setXColor(request);
+      } else if (request.newXColorAll) {
+        ContentScript.setXColorAll(request);
       }
 
       sendResponse({status: true});
@@ -492,10 +582,12 @@ class ContentScript {
 
   static async markLazies(imgs) {
     for (const [index, img] of Object.entries(imgs)) {
+      const src = img.currentSrc != '' ? img.currentSrc : img.src;
       if (
-        (img.naturalWidth == 0 || img.naturalHeight == 0) ||
-        (img.naturalWidth == 1 && img.naturalHeight == 1)
+        ((img.naturalWidth == 0 || img.naturalHeight == 0) || (img.naturalWidth == 1 && img.naturalHeight == 1)) &&
+        !(Audit.oxyplugLoadFails && Audit.oxyplugLoadFails[src])
       ) {
+        img.setAttribute('loading', 'eager');
         img.classList.add(`oxyplug-tech-seo-lazy-${index}`);
         ContentScript.lazyImgs.push(img);
       }
@@ -505,8 +597,16 @@ class ContentScript {
   static async markScrollables() {
     const allElements = document.querySelectorAll('body *:not(script, style, link, meta)');
     for (let e = 0; e < allElements.length; e++) {
-      const scrollableX = allElements[e].clientWidth < allElements[e].scrollWidth;
-      const scrollableY = allElements[e].clientHeight < allElements[e].scrollHeight;
+      const style = getComputedStyle(allElements[e]);
+
+      const scrollableX =
+        (allElements[e].clientWidth < allElements[e].scrollWidth) &&
+        (['auto', 'scroll'].includes(style.overflowX) || ['auto', 'scroll'].includes(style.overflow));
+
+      const scrollableY =
+        (allElements[e].clientHeight < allElements[e].scrollHeight) &&
+        (['auto', 'scroll'].includes(style.overflowY) || ['auto', 'scroll'].includes(style.overflow));
+
       if (scrollableX || scrollableY) {
         let className;
         if (scrollableX && scrollableY) {
@@ -516,8 +616,12 @@ class ContentScript {
         } else if (scrollableY) {
           className = 'oxyplug-tech-seo-scrollable-y';
         }
-        allElements[e].classList.add(className);
-        ContentScript.scrollables.push(allElements[e]);
+
+        // TODO: Remove this if after xy scrolling implemented
+        if (className != 'oxyplug-tech-seo-scrollable-xy') {
+          allElements[e].classList.add(className);
+          ContentScript.scrollables.push(allElements[e]);
+        }
       }
     }
   }
@@ -527,136 +631,222 @@ class ContentScript {
    * @returns {Promise<void>}
    */
   static async scrollPage() {
-    const speed = 25;
-    let scrollVerticallyId;
     const docEl = document.documentElement;
 
     // Go to top to start scrolling
     await window.scroll({top: 0});
 
     // Down
-    const scrollForwardVertically = () => {
+    const scrollForwardVertically = async () => {
       const shouldContinue = docEl.clientHeight + docEl.scrollTop < docEl.scrollHeight - 1;
       if (shouldContinue) {
-        docEl.scrollTop += speed;
-        scrollVerticallyId = requestAnimationFrame(scrollForwardVertically);
+
+        // Scroll Down
+        window.scrollTo({
+          top: docEl.scrollTop + docEl.clientHeight,
+          behavior: 'smooth'
+        });
+
+        // Wait 0.7 second
+        await new Promise(resolve => {
+          setTimeout(() => {
+            resolve()
+          }, 700);
+        });
+
+        // Call function again
+        await scrollForwardVertically();
       } else {
-        cancelAnimationFrame(scrollVerticallyId);
-        scrollBackwardVertically();
+        await scrollBackwardVertically();
       }
     };
 
     // Up
-    const scrollBackwardVertically = () => {
+    const scrollBackwardVertically = async () => {
       const shouldContinue = docEl.scrollTop > 1;
       if (shouldContinue) {
-        docEl.scrollTop -= speed;
-        requestAnimationFrame(scrollBackwardVertically);
+
+        // Scroll Up
+        window.scrollTo({
+          top: docEl.scrollTop - docEl.clientHeight,
+          behavior: 'smooth'
+        });
+
+        // Wait 0.7 second
+        await new Promise(resolve => {
+          setTimeout(() => {
+            resolve()
+          }, 700);
+        });
+
+        // Call function again
+        await scrollBackwardVertically();
       }
     };
 
     // Start scrolling
-    scrollForwardVertically();
-
-    // Wait to reach bottom
-    await new Promise(resolve => {
-      const checkIfScrolledToBottom = setInterval(() => {
-        if (docEl.scrollTop <= 1) {
-          clearInterval(checkIfScrolledToBottom);
-          resolve();
-        }
-      }, 1000);
-    });
+    await scrollForwardVertically();
   }
 
   /**
    * Load lazy images by scrolling scrollable sections
    * @returns {Promise<void>}
    */
-  static async scrollSections() {
-    // TODO: Maybe merge scroll functions into ONE
+  static async scrollScrollables() {
+    // TODO: Merge scroll functions into ONE
 
     // Scroll horizontally
-    let scrollHorizontallyId;
-    const scrollForwardHorizontally = (scrollable, maxScroll, speed, rtl = false) => {
+    const scrollForwardHorizontally = async (scrollable, scrollEndPoint, rtl = false) => {
       // Go to the section
       const scrollableY = scrollable.getBoundingClientRect().top + window.scrollY;
       window.scrollTo(0, scrollableY);
 
-      let forward = true;
       if (rtl) {
-        if (Math.abs(scrollable.scrollLeft) < maxScroll) {
-          scrollable.scrollLeft -= speed;
-        } else {
-          forward = false;
+        if (Math.abs(scrollable.scrollLeft) < scrollEndPoint) {
+
+          // Scroll Forward
+          scrollable.scrollTo({
+            left: scrollable.scrollLeft - scrollable.clientWidth,
+            behavior: 'smooth'
+          });
+
+          // Wait 0.7 second
+          await new Promise(resolve => {
+            setTimeout(() => {
+              resolve()
+            }, 700);
+          });
+
+          // Call function again
+          await scrollForwardHorizontally(scrollable, scrollEndPoint, rtl);
         }
       } else {
-        if (scrollable.scrollLeft < maxScroll) {
-          scrollable.scrollLeft += speed;
-        } else {
-          forward = false;
+        if (scrollable.scrollLeft < scrollEndPoint) {
+
+          // Scroll Forward
+          scrollable.scrollTo({
+            left: scrollable.scrollLeft + scrollable.clientWidth,
+            behavior: 'smooth'
+          });
+
+          // Wait 0.7 second
+          await new Promise(resolve => {
+            setTimeout(() => {
+              resolve()
+            }, 700);
+          });
+
+          // Call function again
+          await scrollForwardHorizontally(scrollable, scrollEndPoint, rtl);
         }
       }
 
-      if (forward) {
-        scrollHorizontallyId = requestAnimationFrame(() => scrollForwardHorizontally(scrollable, maxScroll, speed, rtl));
-      } else {
-        cancelAnimationFrame(scrollHorizontallyId);
-        scrollBackwardHorizontally(scrollable, -1, speed, rtl);
-      }
+      await scrollBackwardHorizontally(scrollable, 0, rtl);
     }
-    const scrollBackwardHorizontally = (scrollable, maxScroll, speed, rtl) => {
+    const scrollBackwardHorizontally = async (scrollable, scrollEndPoint, rtl) => {
       if (rtl) {
-        if (scrollable.scrollLeft < maxScroll) {
-          scrollable.scrollLeft += speed;
-          requestAnimationFrame(() => scrollBackwardHorizontally(scrollable, maxScroll, speed, rtl));
-          return;
+        if (scrollable.scrollLeft < scrollEndPoint) {
+
+          // Scroll Backward
+          scrollable.scrollTo({
+            left: scrollable.scrollLeft + scrollable.clientWidth,
+            behavior: 'smooth'
+          });
+
+          // Wait 0.7 second
+          await new Promise(resolve => {
+            setTimeout(() => {
+              resolve()
+            }, 700);
+          });
+
+          // Call function again
+          await scrollBackwardHorizontally(scrollable, scrollEndPoint, rtl);
         }
       } else {
-        if (scrollable.scrollLeft > maxScroll) {
-          scrollable.scrollLeft -= speed;
-          requestAnimationFrame(() => scrollBackwardHorizontally(scrollable, maxScroll, speed, rtl));
-          return;
+        if (scrollable.scrollLeft > scrollEndPoint) {
+
+          // Scroll Backward
+          scrollable.scrollTo({
+            left: scrollable.scrollLeft - scrollable.clientWidth,
+            behavior: 'smooth'
+          });
+
+          // Wait 0.7 second
+          await new Promise(resolve => {
+            setTimeout(() => {
+              resolve()
+            }, 700);
+          });
+
+          // Call function again
+          await scrollBackwardHorizontally(scrollable, scrollEndPoint, rtl);
         }
       }
 
       if (ContentScript.scrollables.length) {
         const nextScrollable = ContentScript.scrollables[++ContentScript.scrollableIndex];
+
+        // TODO: Decide if it is needed or not! Because it will loop until when there is no scrollables,
+        //  so the promise in the backward section seems to be deleted too!
         if (nextScrollable === undefined) {
           ContentScript.scrollables = [];
         } else {
-          const maxScrollWithTolerance = scrollable.scrollWidth - scrollable.clientWidth - 1;
-          scrollForwardHorizontally(nextScrollable, maxScrollWithTolerance, speed, rtl);
+          const scrollEndPointWithTolerance = nextScrollable.scrollWidth - nextScrollable.clientWidth - 1;
+
+          // Scroll to the start point depending on the layout
+          nextScrollable.scrollLeft = rtl ? scrollEndPointWithTolerance : 0;
+
+          await scrollForwardHorizontally(nextScrollable, scrollEndPointWithTolerance, rtl);
         }
       }
     }
 
     // Scroll vertically
-    let scrollVerticallyId;
-    const scrollForwardVertically = (scrollable, maxScroll, speed) => {
+    const scrollForwardVertically = async (scrollable, scrollEndPoint) => {
       // Go to the section
       const scrollableY = scrollable.getBoundingClientRect().top + window.scrollY;
       window.scrollTo(0, scrollableY);
 
-      let forward = true;
-      if (scrollable.scrollTop < maxScroll) {
-        scrollable.scrollTop += speed;
-      } else {
-        forward = false;
+      if (scrollable.scrollTop < scrollEndPoint) {
+
+        // Scroll Forward
+        scrollable.scrollTo({
+          top: scrollable.scrollTop + scrollable.clientHeight,
+          behavior: 'smooth'
+        });
+
+        // Wait 0.7 second
+        await new Promise(resolve => {
+          setTimeout(() => {
+            resolve()
+          }, 700);
+        });
+
+        // Call function again
+        await scrollForwardVertically(scrollable, scrollEndPoint);
       }
 
-      if (forward) {
-        scrollVerticallyId = requestAnimationFrame(() => scrollForwardVertically(scrollable, maxScroll, speed));
-      } else {
-        cancelAnimationFrame(scrollVerticallyId);
-        scrollBackwardVertically(scrollable, -1, speed);
-      }
+      await scrollBackwardVertically(scrollable, 0);
     }
-    const scrollBackwardVertically = (scrollable, maxScroll, speed) => {
-      if (scrollable.scrollTop > maxScroll) {
-        scrollable.scrollTop -= speed;
-        requestAnimationFrame(() => scrollBackwardVertically(scrollable, maxScroll, speed));
-        return;
+    const scrollBackwardVertically = async (scrollable, scrollEndPoint) => {
+      if (scrollable.scrollTop > scrollEndPoint) {
+
+        // Scroll Backward
+        scrollable.scrollTo({
+          top: scrollable.scrollTop - scrollable.clientHeight,
+          behavior: 'smooth'
+        });
+
+        // Wait 0.7 second
+        await new Promise(resolve => {
+          setTimeout(() => {
+            resolve()
+          }, 700);
+        });
+
+        // Call function again
+        await scrollBackwardVertically(scrollable, scrollEndPoint);
       }
 
       if (ContentScript.scrollables.length) {
@@ -664,8 +854,14 @@ class ContentScript {
         if (nextScrollable === undefined) {
           ContentScript.scrollables = [];
         } else {
-          const maxScrollWithTolerance = scrollable.scrollHeight - scrollable.clientHeight - 1;
-          scrollForwardVertically(nextScrollable, maxScrollWithTolerance, speed);
+
+          // TODO: These are duplicates! one in the first place and second here and there above!!
+          const scrollEndPointWithTolerance = nextScrollable.scrollHeight - nextScrollable.clientHeight - 1;
+
+          // Scroll to the start point depending on the layout
+          nextScrollable.scrollTop = 0;
+
+          await scrollForwardVertically(nextScrollable, scrollEndPointWithTolerance);
         }
       }
     }
@@ -677,18 +873,27 @@ class ContentScript {
       const scrollable = ContentScript.scrollables[ContentScript.scrollableIndex];
       if (scrollable) {
         const classList = [...scrollable.classList];
-        const speed = 25;
 
         // TODO: Add `oxyplug-tech-seo-scrollable-xy` later since it needs calculations for scrolling both vertically and horizontally
 
         if (classList.includes('oxyplug-tech-seo-scrollable-x')) {
-          scrollable.scrollLeft = 0;
-          const maxScrollWithTolerance = scrollable.scrollWidth - scrollable.clientWidth - 1;
-          scrollForwardHorizontally(scrollable, maxScrollWithTolerance, speed, rtl);
+
+          const scrollEndPointWithTolerance = scrollable.scrollWidth - scrollable.clientWidth - 1;
+
+          // Scroll to the start point depending on the layout
+          scrollable.scrollLeft = rtl ? scrollEndPointWithTolerance : 0;
+
+          // Start scrolling
+          scrollForwardHorizontally(scrollable, scrollEndPointWithTolerance, rtl);
+
         } else if (classList.includes('oxyplug-tech-seo-scrollable-y')) {
+          const scrollEndPointWithTolerance = scrollable.scrollHeight - scrollable.clientHeight - 1;
+
+          // Scroll to the start point
           scrollable.scrollTop = 0;
-          const maxScrollWithTolerance = scrollable.scrollHeight - scrollable.clientHeight - 1;
-          scrollForwardVertically(scrollable, maxScrollWithTolerance, speed);
+
+          // Start scrolling
+          scrollForwardVertically(scrollable, scrollEndPointWithTolerance);
         }
       }
 
@@ -746,7 +951,7 @@ class ContentScript {
 
       // Mark scrollables like carousels and scroll them to load lazy images
       await ContentScript.markScrollables();
-      await ContentScript.scrollSections();
+      await ContentScript.scrollScrollables();
       await ContentScript.waitForLazies();
     }
     ContentScript.issues = await Audit.all(imgs);
@@ -775,16 +980,19 @@ class ContentScript {
 
     // Highlight the target element
     const highlights = await document.querySelectorAll('.oxyplug-tech-seo-highlighted');
+    let XColorAll = await getLocalStorage('oxyplug_x_color_all');
+    XColorAll = XColorAll ? XColorAll.toString() : '#0000ff';
     await highlights.forEach((highlight) => {
       highlight.classList.remove('oxyplug-tech-seo-highlighted');
-      highlight.style.setProperty('color', '#000000', 'important');
+      highlight.style.setProperty('color', XColorAll, 'important');
     });
 
     if (el) {
       const nextSibling = el.nextSibling;
       nextSibling.classList.add('oxyplug-tech-seo-highlighted');
-      const color = await getLocalStorage('oxyplug_x_color');
-      nextSibling.style.setProperty('color', color ? color.toString() : '#ff0000', 'important');
+      let XColor = await getLocalStorage('oxyplug_x_color');
+      XColor = XColor ? XColor.toString() : '#ff0000';
+      nextSibling.style.setProperty('color', XColor, 'important');
 
       // Scroll to the target element point
       el.scrollIntoView({
@@ -807,6 +1015,18 @@ class ContentScript {
     const highlights = document.querySelectorAll('.oxyplug-tech-seo-highlighted');
     highlights.forEach((highlight) => {
       highlight.style.color = request.newXColor;
+    });
+  }
+
+  /**
+   * Set all X color
+   * @param request
+   * @returns {Promise<void>}
+   */
+  static async setXColorAll(request) {
+    const highlights = document.querySelectorAll('.oxyplug-tech-seo-highlight:not(.oxyplug-tech-seo-highlighted)');
+    highlights.forEach((highlight) => {
+      highlight.style.color = request.newXColorAll;
     });
   }
 }

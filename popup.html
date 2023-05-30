@@ -61,6 +61,9 @@
           <button id="load-fails-issue" class="button button-small">
             Load Fails<span>0</span>
           </button>
+          <button id="nx-issue" class="button button-small">
+            No 2x<span>0</span>
+          </button>
           <button id="next-gen-formats-issue" class="button button-small">
             Next Gen Formats<span>0</span>
           </button>
@@ -84,7 +87,11 @@
       <input id="oxyplug-max-image-alt" type="number" min="1" max="256">
       <div class="h-separator"></div>
 
-      <label for="oxyplug-x-color">X Color</label>
+      <label for="oxyplug-x-color-all">X Color</label>
+      <input id="oxyplug-x-color-all" type="color">
+      <div class="h-separator"></div>
+
+      <label for="oxyplug-x-color">X Color (Active)</label>
       <input id="oxyplug-x-color" type="color">
       <div class="h-separator"></div>
 
@@ -125,20 +132,24 @@
           <a href="https://oxyplug.com#5" target="_blank">Learn More</a>
         </li>
         <li>
-          The next-gen (WebP, AVIF) is not provided!
+          No 2x image found for DPR 2 devices
           <a href="https://oxyplug.com#6" target="_blank">Learn More</a>
         </li>
         <li>
-          The loading attribute is not set!
+          The next-gen (WebP, AVIF) is not provided!
           <a href="https://oxyplug.com#7" target="_blank">Learn More</a>
         </li>
         <li>
-          The loading attribute doesn't equal `lazy`!
+          The loading attribute is not set!
           <a href="https://oxyplug.com#8" target="_blank">Learn More</a>
         </li>
         <li>
-          LCP => This just shows the big image(s)
+          The loading attribute doesn't equal `lazy`!
           <a href="https://oxyplug.com#9" target="_blank">Learn More</a>
+        </li>
+        <li>
+          LCP => This just shows the big image(s)
+          <a href="https://oxyplug.com#10" target="_blank">Learn More</a>
         </li>
       </ul>
     </div>
