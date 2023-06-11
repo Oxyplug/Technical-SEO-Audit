@@ -144,7 +144,7 @@ class Popup {
           await Popup.highlightActiveFilter();
         })();
       } else if (request.showIssues) {
-        (async () => await Common.showIssues(request.showIssues, request.issueTypes))();
+        (async () => await Common.showIssues(request.showIssues, request.issueTypes, 'popup'))();
       }
 
       sendResponse({status: true});
@@ -447,7 +447,7 @@ class Popup {
       await Popup.highlightActiveFilter();
 
     } else {
-      await Common.showIssues(['No issues found on the page :)'], 'info');
+      await Common.showIssues(['No issues found on the page :)'], 'info', 'popup');
     }
 
     await Popup.toggleSpinner('none');

@@ -1,0 +1,31 @@
+.oxyplug-modal {
+  z-index: 9999;
+  height: 100%;
+}
+
+.oxyplug-modal,
+.oxyplug-modal *:not(.oxyplug-modal-close) {
+  font-family: Montserrat, sans-serif !important;
+  font-weight: 500;
+  font-size: 18px;
+}
+
+.oxyplug-modal-content {
+  top: 30%;
+}
+
+@media (min-width: 768px) {
+  .oxyplug-modal-content {
+    width: 714px;
+  }
+}
+
+.oxyplug-modal-content h1 {
+  font-size: 24px;
+}
+
+.oxyplug-modal-content ul li {
+  text-align: left;
+  direction: ltr;
+  font-weight: normal;
+}
