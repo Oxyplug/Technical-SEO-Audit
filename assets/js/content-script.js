@@ -4,6 +4,37 @@ class Audit {
   static oxyplugLoadFails = [];
   static LCPs = [];
 
+  static async preventPropagation(els) {
+    const events = ['mousedown', 'mouseup', 'click'];
+    els.forEach((el) => {
+      events.forEach((event) => {
+        el.addEventListener(event, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+      });
+    });
+  }
+
+  static async deactivateAnchors(spanX) {
+    let isAffectedByAnchorTag = false;
+    let closestAnchorTag = null;
+    let currentElement = spanX.parentElement;
+    while (currentElement && !isAffectedByAnchorTag) {
+      if (currentElement.tagName === 'A') {
+        isAffectedByAnchorTag = true;
+        closestAnchorTag = currentElement;
+      }
+
+      currentElement = currentElement.parentElement;
+    }
+    if (closestAnchorTag) {
+      closestAnchorTag.addEventListener('click', (event) => {
+        event.preventDefault();
+      });
+    }
+  }
+
   /**
    * Add issues to an object
    * @param message
@@ -82,20 +113,13 @@ class Audit {
         img.replaceWith(divX);
         divX.insertAdjacentElement('afterbegin', img);
 
-        // Prevent its closest <a> from opening the link and display the issues modal instead
-        let aElement = null;
-        let parent = spanX.parentElement;
-        for (let p = 1; p <= 3 && parent; p++) {
-          if (parent.tagName === 'A') {
-            aElement = parent;
-            break;
-          }
-          parent = parent.parentElement;
-        }
-        if (aElement) {
-          // TODO: Not working!!
-        }
+        // Prevent default actions including opening links in a new tab
+        await Audit.preventPropagation([divX, img, spanX]);
 
+        // Deactivate parent possible anchor tags
+        await Audit.deactivateAnchors(spanX);
+
+        // Set size of X equivalent to image size
         const spanComputedStyle = getComputedStyle(spanX);
         const spanFontSize = spanComputedStyle.fontSize;
         const fontSize = spanFontSize.replace(/px$/, '');
@@ -119,10 +143,13 @@ class Audit {
   /**
    * Audit elements with all validations
    * @param imgs
-   * @returns {Promise<{count: {"height-issue": any, "next-gen-formats-issue": any, "lcp-issue": any, "alt-issue": any, "width-issue": any, "src-issue": any, "rendered-size-issue": any, "aspect-ratio-issue": any, "load-fails-issue": any, "filesize-issue": any, "lazy-load-issue": any}, issues: (*|{})}>}
+   * @returns {Promise<{count: {"height-issue": any, "next-gen-formats-issue": any, "lcp-issue": any, "alt-issue": any, "nx-issue": any, "width-issue": any, "src-issue": any, "rendered-size-issue": any, "aspect-ratio-issue": any, "load-fails-issue": any, "filesize-issue": any, "lazy-load-issue": any}, issues: (*|{})}>}
    */
   static async all(imgs) {
     Audit.issues = {};
+    Audit.LCPs = [];
+    await window.scroll({top: 0});
+    await Audit.fillLCPs();
 
     let [
       srcIssuesCount, altIssuesCount, widthIssuesCount,
@@ -520,16 +547,22 @@ class Audit {
   }
 
   static async fillLCPs() {
-    Audit.LCPs = [];
-    const observer = new PerformanceObserver((list) => {
-      const entries = list.getEntries();
-      const lastEntry = entries[entries.length - 1];
-      Audit.LCPs.push(lastEntry.element);
-    });
-    observer.observe({
-      type: 'largest-contentful-paint',
-      buffered: true
-    });
+    let lcpElement = null;
+    let lastWidth = 0;
+    let lastHeight = 0;
+    const elements = document.getElementsByTagName('img');
+    for (let i = 0; i < elements.length && (elements[i].getBoundingClientRect().bottom / 2) < window.innerHeight; i++) {
+      const element = elements[i];
+      if (element.offsetWidth > lastWidth && element.offsetHeight > lastHeight) {
+        lastWidth = element.offsetWidth;
+        lastHeight = element.offsetHeight;
+        lcpElement = element;
+      }
+    }
+
+    if (lcpElement) {
+      Audit.LCPs.push(lcpElement);
+    }
   }
 
   /**
@@ -553,14 +586,13 @@ class ContentScript {
   static lazyTries = [];
   static scrollables = [];
   static scrollableIndex = 0;
+  static rtl = false;
 
   /**
    * Init
    * @returns {Promise<void>}
    */
   static async init() {
-    await Audit.fillLCPs();
-
     ContentScript.issues = {};
     Audit.oxyplugLoadFails = await getLocalStorage('oxyplug_load_fails');
 
@@ -609,19 +641,25 @@ class ContentScript {
 
       if (scrollableX || scrollableY) {
         let className;
-        if (scrollableX && scrollableY) {
-          className = 'oxyplug-tech-seo-scrollable-xy';
-        } else if (scrollableX) {
+        if (scrollableX) {
           className = 'oxyplug-tech-seo-scrollable-x';
         } else if (scrollableY) {
           className = 'oxyplug-tech-seo-scrollable-y';
         }
 
-        // TODO: Remove this if after xy scrolling implemented
-        if (className != 'oxyplug-tech-seo-scrollable-xy') {
-          allElements[e].classList.add(className);
-          ContentScript.scrollables.push(allElements[e]);
+        /**
+         * Element.offsetTop won't work in this scenario as we are not scrolling the whole page but a div.
+         * And if we are to use getBoundingClientRect(), its value keeps changing after scrolling so at first point
+         * it needs to be stored somewhere like dataset and be used afterwards.
+         */
+        const parent = allElements[e].parentElement;
+        if (parent.classList.contains('oxyplug-tech-seo-scrollable-y')) {
+          const rect = allElements[e].getBoundingClientRect();
+          const parentRect = allElements[e].parentElement.getBoundingClientRect();
+          allElements[e].dataset.rectTop = String(rect.top - parentRect.top);
         }
+        allElements[e].classList.add(className);
+        ContentScript.scrollables.push(allElements[e]);
       }
     }
   }
@@ -688,20 +726,33 @@ class ContentScript {
     await scrollForwardVertically();
   }
 
-  /**
-   * Load lazy images by scrolling scrollable sections
-   * @returns {Promise<void>}
-   */
-  static async scrollScrollables() {
-    // TODO: Merge scroll functions into ONE
-
-    // Scroll horizontally
-    const scrollForwardHorizontally = async (scrollable, scrollEndPoint, rtl = false) => {
-      // Go to the section
+  static async gotoSection(scrollable) {
+    if (scrollable.dataset.rectTop) {
+      scrollable.parentElement.scroll({
+        top: Number(scrollable.dataset.rectTop),
+        behavior: 'smooth'
+      });
+    } else {
       const scrollableY = scrollable.getBoundingClientRect().top + window.scrollY;
       window.scrollTo(0, scrollableY);
+    }
+  }
 
-      if (rtl) {
+  static async moreScrollables() {
+    if (ContentScript.scrollables.length) {
+      const nextScrollable = ContentScript.scrollables[++ContentScript.scrollableIndex];
+      if (nextScrollable === undefined) {
+        ContentScript.scrollables = [];
+      } else {
+        await ContentScript.gotoSection(nextScrollable);
+        await ContentScript.initScroll(nextScrollable);
+      }
+    }
+  }
+
+  static async scrollHorizontally(scrollable) {
+    const scrollForwardHorizontally = async (scrollable, scrollEndPoint) => {
+      if (ContentScript.rtl) {
         if (Math.abs(scrollable.scrollLeft) < scrollEndPoint) {
 
           // Scroll Forward
@@ -718,7 +769,7 @@ class ContentScript {
           });
 
           // Call function again
-          await scrollForwardHorizontally(scrollable, scrollEndPoint, rtl);
+          await scrollForwardHorizontally(scrollable, scrollEndPoint);
         }
       } else {
         if (scrollable.scrollLeft < scrollEndPoint) {
@@ -737,14 +788,14 @@ class ContentScript {
           });
 
           // Call function again
-          await scrollForwardHorizontally(scrollable, scrollEndPoint, rtl);
+          await scrollForwardHorizontally(scrollable, scrollEndPoint);
         }
       }
 
-      await scrollBackwardHorizontally(scrollable, 0, rtl);
+      await scrollBackwardHorizontally(scrollable, 0);
     }
-    const scrollBackwardHorizontally = async (scrollable, scrollEndPoint, rtl) => {
-      if (rtl) {
+    const scrollBackwardHorizontally = async (scrollable, scrollEndPoint) => {
+      if (ContentScript.rtl) {
         if (scrollable.scrollLeft < scrollEndPoint) {
 
           // Scroll Backward
@@ -761,7 +812,7 @@ class ContentScript {
           });
 
           // Call function again
-          await scrollBackwardHorizontally(scrollable, scrollEndPoint, rtl);
+          await scrollBackwardHorizontally(scrollable, scrollEndPoint);
         }
       } else {
         if (scrollable.scrollLeft > scrollEndPoint) {
@@ -780,29 +831,22 @@ class ContentScript {
           });
 
           // Call function again
-          await scrollBackwardHorizontally(scrollable, scrollEndPoint, rtl);
+          await scrollBackwardHorizontally(scrollable, scrollEndPoint);
         }
       }
 
-      if (ContentScript.scrollables.length) {
-        const nextScrollable = ContentScript.scrollables[++ContentScript.scrollableIndex];
-
-        // TODO: Decide if it is needed or not! Because it will loop until when there is no scrollables,
-        //  so the promise in the backward section seems to be deleted too!
-        if (nextScrollable === undefined) {
-          ContentScript.scrollables = [];
-        } else {
-          const scrollEndPointWithTolerance = nextScrollable.scrollWidth - nextScrollable.clientWidth - 1;
-
-          // Scroll to the start point depending on the layout
-          nextScrollable.scrollLeft = rtl ? scrollEndPointWithTolerance : 0;
-
-          await scrollForwardHorizontally(nextScrollable, scrollEndPointWithTolerance, rtl);
-        }
-      }
+      await ContentScript.moreScrollables();
     }
 
-    // Scroll vertically
+    await ContentScript.gotoSection(scrollable);
+
+    const scrollEndPointWithTolerance = scrollable.scrollWidth - scrollable.clientWidth - 1;
+    // Scroll to the start point depending on the layout
+    scrollable.scrollLeft = ContentScript.rtl ? scrollEndPointWithTolerance : 0;
+    await scrollForwardHorizontally(scrollable, scrollEndPointWithTolerance);
+  }
+
+  static async scrollVertically(scrollable) {
     const scrollForwardVertically = async (scrollable, scrollEndPoint) => {
       // Go to the section
       const scrollableY = scrollable.getBoundingClientRect().top + window.scrollY;
@@ -831,7 +875,6 @@ class ContentScript {
     }
     const scrollBackwardVertically = async (scrollable, scrollEndPoint) => {
       if (scrollable.scrollTop > scrollEndPoint) {
-
         // Scroll Backward
         scrollable.scrollTo({
           top: scrollable.scrollTop - scrollable.clientHeight,
@@ -849,52 +892,37 @@ class ContentScript {
         await scrollBackwardVertically(scrollable, scrollEndPoint);
       }
 
-      if (ContentScript.scrollables.length) {
-        const nextScrollable = ContentScript.scrollables[++ContentScript.scrollableIndex];
-        if (nextScrollable === undefined) {
-          ContentScript.scrollables = [];
-        } else {
-
-          // TODO: These are duplicates! one in the first place and second here and there above!!
-          const scrollEndPointWithTolerance = nextScrollable.scrollHeight - nextScrollable.clientHeight - 1;
-
-          // Scroll to the start point depending on the layout
-          nextScrollable.scrollTop = 0;
-
-          await scrollForwardVertically(nextScrollable, scrollEndPointWithTolerance);
-        }
-      }
+      await ContentScript.moreScrollables();
     }
 
-    const rtl = Boolean(await getLocalStorage('oxyplug_rtl_scrolling'));
+    const scrollEndPointWithTolerance = scrollable.scrollHeight - scrollable.clientHeight - 1;
+    // Scroll to the start point
+    scrollable.scrollTop = 0;
+    await scrollForwardVertically(scrollable, scrollEndPointWithTolerance);
+  }
+
+  static async initScroll(scrollable) {
+    const classList = [...scrollable.classList];
+    if (classList.includes('oxyplug-tech-seo-scrollable-x')) {
+      await ContentScript.scrollHorizontally(scrollable);
+    } else if (classList.includes('oxyplug-tech-seo-scrollable-y')) {
+      await ContentScript.scrollVertically(scrollable);
+    }
+  }
+
+  /**
+   * Load lazy images by scrolling scrollable sections
+   * @returns {Promise<void>}
+   */
+  static async scrollScrollables() {
     return new Promise(resolve => {
       // Iterate over scrollables to scroll
       ContentScript.scrollableIndex = 0;
       const scrollable = ContentScript.scrollables[ContentScript.scrollableIndex];
       if (scrollable) {
-        const classList = [...scrollable.classList];
-
-        // TODO: Add `oxyplug-tech-seo-scrollable-xy` later since it needs calculations for scrolling both vertically and horizontally
-
-        if (classList.includes('oxyplug-tech-seo-scrollable-x')) {
-
-          const scrollEndPointWithTolerance = scrollable.scrollWidth - scrollable.clientWidth - 1;
-
-          // Scroll to the start point depending on the layout
-          scrollable.scrollLeft = rtl ? scrollEndPointWithTolerance : 0;
-
-          // Start scrolling
-          scrollForwardHorizontally(scrollable, scrollEndPointWithTolerance, rtl);
-
-        } else if (classList.includes('oxyplug-tech-seo-scrollable-y')) {
-          const scrollEndPointWithTolerance = scrollable.scrollHeight - scrollable.clientHeight - 1;
-
-          // Scroll to the start point
-          scrollable.scrollTop = 0;
-
-          // Start scrolling
-          scrollForwardVertically(scrollable, scrollEndPointWithTolerance);
-        }
+        (async () => {
+          await ContentScript.initScroll(scrollable)
+        })();
       }
 
       const checkAllScrolled = setInterval(() => {
@@ -942,6 +970,7 @@ class ContentScript {
    * @returns {Promise<void>}
    */
   static async startAnalyzing() {
+    ContentScript.rtl = Boolean(await getLocalStorage('oxyplug_rtl_scrolling'));
     document.querySelector('html, body').style.setProperty('scroll-behavior', 'unset', 'important');
     const imgs = document.querySelectorAll('img');
     await ContentScript.markLazies(imgs);

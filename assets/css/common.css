@@ -89,7 +89,7 @@
   user-select: none;
 }
 
-/* Modal Font Starts Here */
+/* Modal Starts Here */
 .oxyplug-modal {
   display: none;
   position: fixed;
@@ -172,7 +172,7 @@
   cursor: pointer;
 }
 
-/* Modal Font Ends Here */
+/* Modal Ends Here */
 
 .oxyplug-list ul {
   margin: 0;

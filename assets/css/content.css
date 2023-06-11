@@ -1,45 +1,8 @@
 .oxyplug-tech-seo > img {
   filter: grayscale(100%) brightness(80%) contrast(120%) sepia(30%);
 }
-
-.oxyplug-modal,
-.oxyplug-modal *:not(.oxyplug-modal-close),
 .oxyplug-tech-seo-highlight {
   font-family: Montserrat, sans-serif !important;
-  font-weight: 500;
-  font-size: 18px;
-}
-
-/* Modal Starts Here */
-.oxyplug-modal {
-  z-index: 9999;
-  height: 100%;
-}
-
-.oxyplug-modal-content {
-  top: 30%;
-}
-
-@media (min-width: 768px) {
-  .oxyplug-modal-content {
-    width: 714px;
-  }
-}
-
-.oxyplug-modal-content h1 {
-  font-size: 24px;
-}
-
-.oxyplug-modal-content ul li {
-  text-align: left;
-  direction: ltr;
-  font-weight: normal;
-  margin-left: 0;
-  margin-right: 0;
-}
-/* Modal Ends Here */
-
-.oxyplug-tech-seo-highlight {
   padding: 0;
   margin: 0;
   color: var(--oxyplug-black);
