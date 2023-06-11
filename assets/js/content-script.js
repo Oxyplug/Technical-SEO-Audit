@@ -205,6 +205,8 @@ class Audit {
      */
     const imgWraps = document.querySelectorAll('.oxyplug-tech-seo:not(.positioned)');
     for (const imgWrap of imgWraps) {
+      // TODO: Merge this with exact the same code somewhere here that is applied after the element is changed
+      //  due to be a lazy image
       const imgWidth = imgWrap.dataset.width;
       const imgHeight = imgWrap.dataset.height;
       imgWrap.classList.add('positioned');
@@ -593,6 +595,7 @@ class ContentScript {
   static async init() {
     ContentScript.issues = {};
     Audit.oxyplugLoadFails = await getLocalStorage('oxyplug_load_fails');
+
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       if (request.oxyplugStart === true) {
         ContentScript.startAnalyzing();
@@ -872,7 +875,6 @@ class ContentScript {
     }
     const scrollBackwardVertically = async (scrollable, scrollEndPoint) => {
       if (scrollable.scrollTop > scrollEndPoint) {
-
         // Scroll Backward
         scrollable.scrollTo({
           top: scrollable.scrollTop - scrollable.clientHeight,
