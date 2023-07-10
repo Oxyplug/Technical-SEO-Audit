@@ -5,6 +5,37 @@ class ContentScript {
   static scrollableIndex = 0;
   static rtl = false;
 
+  static async preventPropagation(els) {
+    const events = ['mousedown', 'mouseup', 'click'];
+    els.forEach((el) => {
+      events.forEach((event) => {
+        el.addEventListener(event, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+      });
+    });
+  }
+
+  static async deactivateAnchors(spanX) {
+    let isAffectedByAnchorTag = false;
+    let closestAnchorTag = null;
+    let currentElement = spanX.parentElement;
+    while (currentElement && !isAffectedByAnchorTag) {
+      if (currentElement.tagName === 'A') {
+        isAffectedByAnchorTag = true;
+        closestAnchorTag = currentElement;
+      }
+
+      currentElement = currentElement.parentElement;
+    }
+    if (closestAnchorTag) {
+      closestAnchorTag.addEventListener('click', (event) => {
+        event.preventDefault();
+      });
+    }
+  }
+
   /**
    * Init
    * @returns {Promise<void>}
@@ -347,6 +378,7 @@ class ContentScript {
       }
 
       await ContentScript.moreScrollables();
+
       resolve();
     });
   }
@@ -406,6 +438,7 @@ class ContentScript {
         await ContentScript.scrollForwardVertically(scrollable, scrollEndPoint);
       }
 
+
       await ContentScript.scrollBackwardVertically(scrollable, 0);
       resolve();
     });
@@ -431,6 +464,7 @@ class ContentScript {
       }
 
       await ContentScript.moreScrollables();
+
       resolve();
     });
   }
@@ -478,6 +512,7 @@ class ContentScript {
         reject(error);
       }
     });
+
   }
 
   /**
