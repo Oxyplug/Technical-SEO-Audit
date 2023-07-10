@@ -1,3 +1,16 @@
+/* Reset Starts Here */
+.button[class^="oxyplug-icon-"],
+.button[class*=" oxyplug-icon-"] {
+  border: none;
+  outline: none;
+  padding: 12px;
+  margin: 0;
+  line-height: 1;
+  font-size: 2em;
+}
+
+/* Reset Ends Here */
+
 /* Font Icon Starts Here */
 @font-face {
   font-family: 'oxyplug-icon';
@@ -62,6 +75,7 @@ button {
   height: calc(100% - var(--h-space));
   padding-top: var(--h-space);
 }
+
 /* Modal Ends Here */
 
 /* Main Starts Here */
@@ -83,7 +97,7 @@ label {
   cursor: pointer;
   transition: box-shadow 0.3s;
   color: var(--oxyplug-white-color);
-  padding: 10px 30px;
+  padding: 10px 22px;
   font-size: 1.3em;
   font-weight: 700;
   border-radius: 3px;
@@ -91,25 +105,84 @@ label {
   background-color: var(--oxyplug-lighter-gray);
 }
 
+.button:disabled {
+  cursor: not-allowed;
+}
+
 .button-small {
   padding: 6px 7px 5px;
   font-size: 1em;
 }
 
-.button:hover {
+.button:not(:disabled):hover {
   box-shadow: inset 0 0 200px rgba(0, 0, 0, 0.1);
 }
 
-.button.button-primary {
-  background-color: var(--oxyplug-primary-color);
+.button.button-primary:not(:disabled) {
+  background-color: var(--oxyplug-blue);
+  box-shadow: inset 0 0 200px rgba(0, 0, 0, 0.2);
 }
 
-.button.button-secondary {
-  background-color: var(--oxyplug-secondary-color);
+.button.button-primary:not(:disabled):hover {
+  box-shadow: inset 0 0 200px rgba(0, 0, 0, 0.3);
+}
+
+.button.button-danger:not(:disabled) {
+  background-color: var(--oxyplug-red);
+}
+
+.button.button-info:not(:disabled) {
+  background-color: var(--oxyplug-aqua);
+}
+
+nav.oxyplug-section > .button {
+  background-color: var(--oxyplug-white-color);
+  border-width: 2px;
+  border-style: solid;
+}
+
+nav.oxyplug-section > .button:hover {
+  box-shadow: inset 0 0 200px rgba(0, 0, 0, 0.05);
+}
+
+.button.oxyplug-icon-home {
+  border-color: var(--oxyplug-blue);
+  color: var(--oxyplug-blue);
+}
+
+.button.button-active.oxyplug-icon-home {
+  background-color: var(--oxyplug-blue);
+}
+
+.button.oxyplug-icon-cog {
+  border-color: var(--oxyplug-green);
+  color: var(--oxyplug-green);
+}
+
+.button.button-active.oxyplug-icon-cog {
+  background-color: var(--oxyplug-green);
+}
+
+.button.oxyplug-icon-exclude {
+  border-color: var(--oxyplug-red);
+  color: var(--oxyplug-red);
+}
+
+.button.button-active.oxyplug-icon-exclude {
+  background-color: var(--oxyplug-red);
+}
+
+.button.oxyplug-icon-info {
+  border-color: var(--oxyplug-yellow);
+  color: var(--oxyplug-yellow);
+}
+
+.button.button-active.oxyplug-icon-info {
+  background-color: var(--oxyplug-yellow);
 }
 
 .button.button-active {
-  background-color: var(--oxyplug-secondary-color);
+  color: var(--oxyplug-white-color);
 }
 
 nav {
@@ -140,7 +213,7 @@ nav > a {
 
 .h-separator {
   margin: 20px 0;
-  background-color: var(--oxyplug-alpha-secondary-color-5);
+  background-color: var(--oxyplug-alpha-green-5);
   width: 100%;
   height: 1px;
   display: flex;
@@ -152,15 +225,25 @@ nav > a {
   content: "";
   display: block;
   width: 60px;
-  height: 3px;
-  background-color: var(--oxyplug-secondary-color);
+  height: 2px;
+  background-color: var(--oxyplug-green);
 }
 
 #oxyplug-is-processing {
   display: none;
-  border: 30px solid var(--oxyplug-primary-color);
-  border-top-color: var(--oxyplug-secondary-color);
-  border-bottom-color: var(--oxyplug-secondary-color);
+}
+
+#oxyplug-is-processing > span {
+  color: var(--oxyplug-red);
+  display: block;
+  margin: 5px 0 15px;
+}
+
+#oxyplug-is-processing > div {
+  border: 30px solid var(--oxyplug-blue);
+  border-left-color: var(--oxyplug-red);
+  border-top-color: var(--oxyplug-yellow);
+  border-right-color: var(--oxyplug-green);
   border-radius: 50%;
   width: 20px;
   height: 20px;
@@ -190,8 +273,11 @@ nav > a {
 /* Main Ends Here */
 
 /* Home Page Starts Here */
-#start {
-  margin-bottom: 8px;
+#last-audit-date {
+  margin: 5px 0 10px;
+  color: var(--oxyplug-dark-black);
+  font-style: italic;
+  font-size: 11px;
 }
 
 #oxyplug-issue-list ul li:hover,
@@ -201,7 +287,7 @@ nav > a {
 }
 
 #oxyplug-issue-list ul li a {
-  color: var(--oxyplug-secondary-color);
+  color: var(--oxyplug-green);
   margin-right: 3px;
 }
 
@@ -220,7 +306,8 @@ nav > a {
 
 /* Settings Page Starts Here */
 #oxyplug-max-image-filesize,
-#oxyplug-max-image-alt {
+#oxyplug-max-image-alt,
+#oxyplug-max-scrolling {
   border: 1px solid var(--oxyplug-lighter-gray);
   border-radius: 3px;
   padding: 10px;
@@ -253,7 +340,7 @@ nav > a {
 }
 
 .oxyplug-tabs > button > span {
-  background: rgba(23, 93, 150, 0.2);
+  background: var(--oxyplug-alpha-blue-2);
   font-size: 0.9em;
   border-radius: 50%;
   width: 20px;
@@ -264,7 +351,7 @@ nav > a {
 }
 
 .oxyplug-tabs > button.active > span {
-  background: var(--oxyplug-primary-color);
+  background: var(--oxyplug-blue);
 }
 
 .oxyplug-tabs > button > span.has-issue {
@@ -337,16 +424,3 @@ nav > a {
 }
 
 /* Info/LearnMore Page Ends Here */
-
-/* Reset Starts Here */
-.button[class^="oxyplug-icon-"],
-.button[class*=" oxyplug-icon-"] {
-  border: none;
-  outline: none;
-  padding: 12px;
-  margin: 0;
-  line-height: 1;
-  font-size: 2em;
-}
-
-/* Reset Ends Here */
