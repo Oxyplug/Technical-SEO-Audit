@@ -29,6 +29,7 @@
       ],
       "js": [
         "assets/js/common.js",
+        "assets/js/audit.js",
         "assets/js/content-script.js"
       ],
       "css": [

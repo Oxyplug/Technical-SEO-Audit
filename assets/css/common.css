@@ -1,9 +1,4 @@
 :root {
-  --oxyplug-primary-color: #175d96;
-  --oxyplug-alpha-primary-color-2: rgba(23, 93, 150, 0.2);
-  --oxyplug-secondary-color: #0fa34c;
-  --oxyplug-alpha-secondary-color-5: rgba(15, 163, 76, 0.5);
-
   --oxyplug-white-color: #fff;
   --oxyplug-alpha-white-color-6: rgba(255, 255, 255, 0.6);
 
@@ -18,8 +13,15 @@
   --oxyplug-lighter-gray: #ccc;
   --oxyplug-lightest-gray: #eee;
 
-  --oxyplug-yellow: #eec600;
-  --oxyplug-alpha-yellow-2: rgba(238, 198, 0, 0.2);
+  --oxyplug-blue: #4285f4;
+  --oxyplug-alpha-blue-2: rgba(66, 133, 244, 0.2);
+
+  --oxyplug-green: #34a853;
+  --oxyplug-alpha-green-5: rgba(52, 168, 83, 0.5);
+  --oxyplug-alpha-green-2: rgba(52, 168, 83, 0.2);
+
+  --oxyplug-yellow: #fbbc05;
+  --oxyplug-alpha-yellow-2: rgba(251, 188, 5, 0.2);
 
   --oxyplug-red: #e00;
   --oxyplug-dark-red: #ab0000;
@@ -84,8 +86,8 @@
   text-align: center;
   background-color: var(--oxyplug-white-color);
   padding: 8px;
-  color: var(--oxyplug-secondary-color);
-  border: 2px solid var(--oxyplug-secondary-color);
+  color: var(--oxyplug-green);
+  border: 2px solid var(--oxyplug-green);
   user-select: none;
 }
 
@@ -193,7 +195,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  border-left: 0 solid var(--oxyplug-secondary-color);
+  border-left: 0 solid var(--oxyplug-green);
   transition: border-left 0.2s;
 }
 

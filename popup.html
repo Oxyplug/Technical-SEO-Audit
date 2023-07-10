@@ -22,9 +22,15 @@
   <div id="content">
 
     <div id="home" class="oxyplug-section">
-      <button id="start" class="button button-primary">Start!</button>
+      <button id="start" class="button button-primary">Start</button>
+      <button id="stop" class="button button-danger" disabled>Stop</button>
+      <button id="restore" class="button button-info" disabled>Clear Result</button>
       <div id="oxyplug-issue-list" class="oxyplug-list">
-        <div id="oxyplug-is-processing"></div>
+        <div id="last-audit-date">Last Audit: <span>N/A</span></div>
+        <div id="oxyplug-is-processing">
+          <span>* Please do not close while it is processing...</span>
+          <div></div>
+        </div>
         <div class="oxyplug-tabs">
           <button id="all-issue" class="button button-small">
             All<span>0</span>
@@ -79,6 +85,10 @@
       <input id="oxyplug-max-image-alt" type="number" min="1" max="256">
       <div class="h-separator"></div>
 
+      <label for="oxyplug-max-scrolling">Max Scrolling</label>
+      <input id="oxyplug-max-scrolling" type="number" min="1" max="5000">
+      <div class="h-separator"></div>
+
       <label for="oxyplug-x-color-all">X Color</label>
       <input id="oxyplug-x-color-all" type="color">
       <div class="h-separator"></div>
@@ -87,60 +97,78 @@
       <input id="oxyplug-x-color" type="color">
       <div class="h-separator"></div>
 
-      <input id="oxyplug-rtl-scrolling" type="checkbox">
-      <label for="oxyplug-rtl-scrolling">RTL (Use this for right-to-left scrolling layout)</label>
+      <div>
+        <input id="oxyplug-rtl-scrolling" type="checkbox">
+        <label for="oxyplug-rtl-scrolling">RTL (Use this for right-to-left scrolling layout)</label>
+      </div>
+
+      <div>
+        <input id="oxyplug-disable-a-tags" type="checkbox">
+        <label for="oxyplug-disable-a-tags">Disable &lt;a&gt; tags</label>
+      </div>
+
+      <div>
+        <input id="oxyplug-disable-mouse-events" type="checkbox">
+        <label for="oxyplug-disable-mouse-events">Disable mouse events (up, down, click)</label>
+      </div>
+
+      <div>
+        <input id="oxyplug-hide-x-overlays" type="checkbox">
+        <label for="oxyplug-hide-x-overlays">Hide overlays on Oxyplug's X</label>
+      </div>
     </div>
 
     <div id="exclusions" class="oxyplug-section oxyplug-list">
       <h2>Exclusion list</h2>
+      <p>No exclusions.</p>
       <ul></ul>
     </div>
 
     <div id="learn" class="oxyplug-section">
       <h2>Learn More</h2>
       <ul>
-        <li>Without src attribute!</li>
-        <li>Without width attribute!</li>
-        <li>Without height attribute!</li>
-        <li>Without alt attribute!</li>
+        <li>Without src attribute.</li>
+        <li>Without width attribute.</li>
+        <li>Without height attribute.</li>
+        <li>Without alt attribute.</li>
         <li>
-          The alt attribute length is more than X characters!
+          The alt attribute length is more than X characters.
           <a href="https://oxyplug.com#1" target="_blank">Learn More</a>
         </li>
         <li>
-          The rendered image dimensions don't equal the original image dimensions!
+          The rendered image dimensions don't equal the original image dimensions.
           <a href="https://oxyplug.com#2" target="_blank">Learn More</a>
         </li>
         <li>
-          The aspect-ratio of the rendered image doesn't equal the aspect-ratio of the original image!
+          The aspect-ratio of the rendered image doesn't equal the aspect-ratio of the original image.
           <a href="https://oxyplug.com#3" target="_blank">Learn More</a>
         </li>
         <li>
-          The image filesize is bigger than X KB
+          The image filesize is bigger than X KB.
           <a href="https://oxyplug.com#4" target="_blank">Learn More</a>
         </li>
         <li>
-          The image fails to load with http status code of X
+          The image fails to load with http status code of X.
           <a href="https://oxyplug.com#5" target="_blank">Learn More</a>
         </li>
         <li>
-          No 2x image found for DPR 2 devices
+          No 2x image found for DPR 2 devices.
           <a href="https://oxyplug.com#6" target="_blank">Learn More</a>
         </li>
         <li>
-          The next-gen (WebP, AVIF) is not provided!
+          The next-gen (WebP, AVIF) is not provided.
           <a href="https://oxyplug.com#7" target="_blank">Learn More</a>
         </li>
         <li>
-          The loading attribute is not set!
+          The loading attribute is not set.
           <a href="https://oxyplug.com#8" target="_blank">Learn More</a>
         </li>
         <li>
-          The loading attribute doesn't equal `lazy`!
+          The loading attribute doesn't equal `lazy`.
           <a href="https://oxyplug.com#9" target="_blank">Learn More</a>
         </li>
         <li>
-          LCP => This just shows the big image(s)
+          LCP => This just shows the big image(s).
           <a href="https://oxyplug.com#10" target="_blank">Learn More</a>
         </li>
       </ul>
