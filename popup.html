@@ -4,10 +4,13 @@
   <link rel="stylesheet" href="assets/css/common.css">
   <link rel="stylesheet" href="assets/css/popup.css">
   <title>Oxyplug - Technical SEO Audit</title>
+  <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
 </head>
 <body>
 
 <div id="wrapper">
+
+  <div id="close-overlay"></div>
 
   <h1 class="oxyplug-tech-seo-h1">Oxyplug - Technical SEO Audit</h1>
 
@@ -22,14 +25,39 @@
   <div id="content">
 
     <div id="home" class="oxyplug-section">
-      <button id="start" class="button button-primary">Start</button>
-      <button id="stop" class="button button-danger" disabled>Stop</button>
-      <button id="restore" class="button button-info" disabled>Clear Result</button>
+      <div id="main-buttons">
+        <button id="start" class="button button-primary">Start</button>
+        <button id="stop" class="button button-danger" disabled>Cancel</button>
+        <div class="button-group">
+          <button id="clear-result" class="button button-info">Clear Result ⏷</button>
+          <ul>
+            <li>
+              <button id="reload">Reload Page</button>
+            </li>
+            <li>
+              <button id="restore">Restore <span>Limited functionality</span></button>
+            </li>
+          </ul>
+        </div>
+      </div>
       <div id="oxyplug-issue-list" class="oxyplug-list">
-        <div id="last-audit-date">Last Audit: <span>N/A</span></div>
+        <div id="last-audit" class="info-box">
+          <div>
+            <strong>Last Audit Page:</strong>
+            <span>N/A</span>
+          </div>
+          <div>
+            <strong>Last Audit Date:</strong>
+            <span>N/A</span>
+          </div>
+        </div>
         <div id="oxyplug-is-processing">
           <span>* Please do not close while it is processing...</span>
           <div></div>
+          <div id="audit-progress" class="progress-container">
+            <div class="progress-bar"></div>
+            <span>0%</span>
+          </div>
         </div>
         <div class="oxyplug-tabs">
           <button id="all-issue" class="button button-small">
@@ -73,6 +101,12 @@
           </button>
         </div>
         <ul></ul>
+
+        <div id="progress-logs" class="info-box">
+          <button>&times;</button>
+          <ul></ul>
+        </div>
+
       </div>
     </div>
 
@@ -85,8 +119,8 @@
       <input id="oxyplug-max-image-alt" type="number" min="1" max="256">
       <div class="h-separator"></div>
 
-      <label for="oxyplug-max-scrolling">Max Scrolling</label>
-      <input id="oxyplug-max-scrolling" type="number" min="1" max="5000">
+      <label for="oxyplug-max-scrolling">Max Scrolling (15000 at most)</label>
+      <input id="oxyplug-max-scrolling" type="number" min="1" max="15000">
       <div class="h-separator"></div>
 
       <label for="oxyplug-x-color-all">X Color</label>
@@ -109,7 +143,7 @@
 
       <div>
         <input id="oxyplug-disable-mouse-events" type="checkbox">
-        <label for="oxyplug-disable-mouse-events">Disable mouse events (up, down, click)</label>
+        <label for="oxyplug-disable-mouse-events">Disable JS events (mousedown, mouseup, click)</label>
       </div>
 
       <div>

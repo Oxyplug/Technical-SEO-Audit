@@ -24,6 +24,11 @@ class Background {
     let loadFails = {};
     let imageFilesizes = {};
     chrome.webRequest.onHeadersReceived.addListener(async (details) => {
+        // Get current tab
+        if (!Background.currentTab) {
+          Background.currentTab = await Background.getCurrentTab();
+        }
+
         if (details.tabId !== Background.currentTab.id) {
           if (details.statusCode === 200) {
             let filesize = 0;

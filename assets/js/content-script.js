@@ -48,11 +48,13 @@ class ContentScript {
         if (request.start === true) {
           await ContentScript.backupDOM();
           await ContentScript.startAnalyzing();
+        } else if (request.reload === true) {
+          location.reload();
         } else if (request.restore === true) {
-          const backup = await Common.getLocalStorage('backup');
-          if (backup) {
+          const backups = await Common.getLocalStorage('backups');
+          if (backups && backups[location.host]) {
             const body = await Common.getElement('body');
-            body.innerHTML = backup;
+            body.innerHTML = backups[location.host];
           }
         } else if (request.scrollTo) {
           await ContentScript.scrollToPoint(request);
@@ -78,19 +80,32 @@ class ContentScript {
    * @returns {Promise<void>}
    */
   static async markLazies(imgs) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
+      await chrome.runtime.sendMessage({log: 'Marking lazy images to be checked...'});
       try {
         ContentScript.lazyImgs = [];
+        ContentScript.lazyTries = [];
         for (const [index, img] of Object.entries(imgs)) {
           const src = img.currentSrc != '' ? img.currentSrc : img.src;
           if (
             ((img.naturalWidth == 0 || img.naturalHeight == 0) || (img.naturalWidth == 1 && img.naturalHeight == 1)) &&
             !(Audit.loadFailsList && Audit.loadFailsList[src])
           ) {
+            if (img.hasAttribute('loading')) {
+              img.dataset.hasLoading = img.getAttribute('loading');
+            } else {
+              img.dataset.hasLoading = 'no';
+            }
             img.setAttribute('loading', 'eager');
             img.classList.add(`oxyplug-tech-seo-lazy-${index}`);
             ContentScript.lazyImgs.push(img);
           }
+        }
+
+        if (ContentScript.lazyImgs.length) {
+          await chrome.runtime.sendMessage({log: 'Marked lazy images...'});
+        } else {
+          await chrome.runtime.sendMessage({log: 'No lazy images found to be marked and checked...'});
         }
 
         resolve();
@@ -107,6 +122,8 @@ class ContentScript {
    */
   static async markScrollables() {
     return new Promise(async (resolve, reject) => {
+      await chrome.runtime.sendMessage({log: 'Marking scrollables to be scrolled to load lazy images...'});
+
       try {
         ContentScript.scrollables = [];
         const allElements = await Common.getElements('body *:not(script, style, link, meta)');
@@ -145,6 +162,12 @@ class ContentScript {
           }
         }
 
+        if (ContentScript.scrollables.length) {
+          await chrome.runtime.sendMessage({log: 'Marked scrollables...'});
+        }
+
+        await chrome.runtime.sendMessage({progress: 60});
+
         resolve();
       } catch (error) {
         console.log(error);
@@ -153,6 +176,11 @@ class ContentScript {
     });
   }
 
+  /**
+   * Make a delay in milliseconds
+   * @param milliseconds
+   * @returns {Promise<unknown>}
+   */
   static async wait(milliseconds) {
     return new Promise(resolve => {
       setTimeout(() => {
@@ -168,6 +196,9 @@ class ContentScript {
   static async scrollPage() {
     return new Promise((resolve, reject) => {
       try {
+        chrome.runtime.sendMessage({log: 'Scrolling the page to load lazy images...'});
+        chrome.runtime.sendMessage({progress: 20});
+
         const docEl = document.documentElement;
 
         // Go to top to start scrolling
@@ -176,13 +207,15 @@ class ContentScript {
         // Down
         const scrollForwardVertically = async () => {
           const stopped = await ContentScript.checkStop();
-          if (stopped) return reject(stopped);
+          if (stopped) return resolve(stopped);
 
           // Limit scrolling
           let scrollLimit = docEl.scrollHeight;
           const maxScrolling = await Common.getLocalStorage('max_scrolling');
           if (maxScrolling > 0 && maxScrolling <= scrollLimit) {
             scrollLimit = maxScrolling;
+          } else if (scrollLimit > Common.oxyplugScrollLimit) {
+            scrollLimit = Common.oxyplugScrollLimit;
           }
 
           const shouldContinue = docEl.clientHeight + docEl.scrollTop < scrollLimit - 1;
@@ -200,6 +233,7 @@ class ContentScript {
             // Call function again
             await scrollForwardVertically();
           } else {
+            await chrome.runtime.sendMessage({progress: 40});
             await scrollBackwardVertically();
           }
         };
@@ -207,7 +241,7 @@ class ContentScript {
         // Up
         const scrollBackwardVertically = async () => {
           const stopped = await ContentScript.checkStop();
-          if (stopped) return reject(stopped);
+          if (stopped) return resolve(stopped);
 
           const shouldContinue = docEl.scrollTop > 1;
           if (shouldContinue) {
@@ -222,8 +256,10 @@ class ContentScript {
             await ContentScript.wait(700);
 
             // Call function again
-            await scrollBackwardVertically();
+            return resolve(await scrollBackwardVertically());
           }
+
+          await chrome.runtime.sendMessage({log: 'Scrolled the page...'});
 
           resolve();
         };
@@ -276,7 +312,7 @@ class ContentScript {
             ContentScript.scrollables = [];
           } else {
             await ContentScript.gotoSection(nextScrollable);
-            await ContentScript.initScroll(nextScrollable);
+            return resolve(await ContentScript.initScroll(nextScrollable));
           }
         }
         resolve();
@@ -294,9 +330,9 @@ class ContentScript {
    * @returns {Promise<unknown>}
    */
   static async scrollForwardHorizontally(scrollable, scrollEndPoint) {
-    return new Promise(async (resolve, reject) => {
+    return new Promise(async (resolve) => {
       const stopped = await ContentScript.checkStop();
-      if (stopped) return reject(stopped);
+      if (stopped) return resolve(stopped);
 
       if (ContentScript.rtl) {
         if (Math.abs(scrollable.scrollLeft) < scrollEndPoint) {
@@ -311,7 +347,7 @@ class ContentScript {
           await ContentScript.wait(700);
 
           // Call function again
-          await ContentScript.scrollForwardHorizontally(scrollable, scrollEndPoint);
+          return resolve(await ContentScript.scrollForwardHorizontally(scrollable, scrollEndPoint));
         }
       } else {
         if (scrollable.scrollLeft < scrollEndPoint) {
@@ -325,12 +361,11 @@ class ContentScript {
           await ContentScript.wait(700);
 
           // Call function again
-          await ContentScript.scrollForwardHorizontally(scrollable, scrollEndPoint);
+          return resolve(await ContentScript.scrollForwardHorizontally(scrollable, scrollEndPoint));
         }
       }
 
-      await ContentScript.scrollBackwardHorizontally(scrollable, 0);
-      resolve();
+      resolve(await ContentScript.scrollBackwardHorizontally(scrollable, 0));
     });
   }
 
@@ -341,9 +376,9 @@ class ContentScript {
    * @returns {Promise<unknown>}
    */
   static async scrollBackwardHorizontally(scrollable, scrollEndPoint) {
-    return new Promise(async (resolve, reject) => {
+    return new Promise(async (resolve) => {
       const stopped = await ContentScript.checkStop();
-      if (stopped) return reject(stopped);
+      if (stopped) return resolve(stopped);
 
       if (ContentScript.rtl) {
         if (scrollable.scrollLeft < scrollEndPoint) {
@@ -358,7 +393,7 @@ class ContentScript {
           await ContentScript.wait(700);
 
           // Call function again
-          await ContentScript.scrollBackwardHorizontally(scrollable, scrollEndPoint);
+          return resolve(await ContentScript.scrollBackwardHorizontally(scrollable, scrollEndPoint));
         }
       } else {
         if (scrollable.scrollLeft > scrollEndPoint) {
@@ -373,7 +408,7 @@ class ContentScript {
           await ContentScript.wait(700);
 
           // Call function again
-          await ContentScript.scrollBackwardHorizontally(scrollable, scrollEndPoint);
+          return resolve(await ContentScript.scrollBackwardHorizontally(scrollable, scrollEndPoint));
         }
       }
 
@@ -392,15 +427,15 @@ class ContentScript {
     return new Promise(async (resolve, reject) => {
       try {
         const stopped = await ContentScript.checkStop();
-        if (stopped) return reject(stopped);
+        if (stopped) return resolve(stopped);
 
         await ContentScript.gotoSection(scrollable);
 
         const scrollEndPointWithTolerance = scrollable.scrollWidth - scrollable.clientWidth - 1;
         // Scroll to the start point depending on the layout
         scrollable.scrollLeft = ContentScript.rtl ? scrollEndPointWithTolerance : 0;
-        await ContentScript.scrollForwardHorizontally(scrollable, scrollEndPointWithTolerance);
-        resolve();
+
+        resolve(await ContentScript.scrollForwardHorizontally(scrollable, scrollEndPointWithTolerance));
       } catch (error) {
         console.log(error);
         reject(error);
@@ -415,9 +450,9 @@ class ContentScript {
    * @returns {Promise<unknown>}
    */
   static async scrollForwardVertically(scrollable, scrollEndPoint) {
-    return new Promise(async (resolve, reject) => {
+    return new Promise(async (resolve) => {
       const stopped = await ContentScript.checkStop();
-      if (stopped) return reject(stopped);
+      if (stopped) return resolve(stopped);
 
       // Go to the section
       const scrollableY = scrollable.getBoundingClientRect().top + window.scrollY;
@@ -435,7 +470,7 @@ class ContentScript {
         await ContentScript.wait(700);
 
         // Call function again
-        await ContentScript.scrollForwardVertically(scrollable, scrollEndPoint);
+        return resolve(await ContentScript.scrollForwardVertically(scrollable, scrollEndPoint));
       }
 
 
@@ -444,10 +479,16 @@ class ContentScript {
     });
   }
 
+  /**
+   * Scroll backward vertically
+   * @param scrollable
+   * @param scrollEndPoint
+   * @returns {Promise<unknown>}
+   */
   static async scrollBackwardVertically(scrollable, scrollEndPoint) {
-    return new Promise(async (resolve, reject) => {
+    return new Promise(async (resolve) => {
       const stopped = await ContentScript.checkStop();
-      if (stopped) return reject(stopped);
+      if (stopped) return resolve(stopped);
 
       if (scrollable.scrollTop > scrollEndPoint) {
         // Scroll Backward
@@ -460,7 +501,7 @@ class ContentScript {
         await ContentScript.wait(700);
 
         // Call function again
-        await ContentScript.scrollBackwardVertically(scrollable, scrollEndPoint);
+        return resolve(await ContentScript.scrollBackwardVertically(scrollable, scrollEndPoint));
       }
 
       await ContentScript.moreScrollables();
@@ -477,6 +518,11 @@ class ContentScript {
   static async scrollVertically(scrollable) {
     return new Promise(async (resolve, reject) => {
       try {
+        const stopped = await ContentScript.checkStop();
+        if (stopped) return resolve(stopped);
+
+        await ContentScript.gotoSection(scrollable);
+
         const scrollEndPointWithTolerance = scrollable.scrollHeight - scrollable.clientHeight - 1;
         // Scroll to the start point
         scrollable.scrollTop = 0;
@@ -498,13 +544,13 @@ class ContentScript {
     return new Promise(async (resolve, reject) => {
       try {
         const stopped = await ContentScript.checkStop();
-        if (stopped) return reject(stopped);
+        if (stopped) return resolve(stopped);
 
         const classList = [...scrollable.classList];
         if (classList.includes('oxyplug-tech-seo-scrollable-x')) {
-          await ContentScript.scrollHorizontally(scrollable);
+          return resolve(await ContentScript.scrollHorizontally(scrollable));
         } else if (classList.includes('oxyplug-tech-seo-scrollable-y')) {
-          await ContentScript.scrollVertically(scrollable);
+          return resolve(await ContentScript.scrollVertically(scrollable));
         }
         resolve();
       } catch (error) {
@@ -521,13 +567,15 @@ class ContentScript {
    */
   static async scrollScrollables() {
     return new Promise(async (resolve, reject) => {
+      await chrome.runtime.sendMessage({log: 'Scrolling scrollables...'});
       try {
         // Iterate over scrollables to scroll
         ContentScript.scrollableIndex = 0;
         const scrollable = ContentScript.scrollables[ContentScript.scrollableIndex];
         if (scrollable) {
-          await ContentScript.initScroll(scrollable);
+          return resolve(await ContentScript.initScroll(scrollable));
         }
+        await chrome.runtime.sendMessage({log: 'Scrolled scrollables...'});
         resolve();
       } catch (error) {
         console.log(error);
@@ -542,10 +590,25 @@ class ContentScript {
    */
   static async waitForLazies() {
     return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage({log: 'Waiting for lazy images to load...'});
+      chrome.runtime.sendMessage({progress: 80});
       try {
         const checkImagesLoaded = setInterval(() => {
+
+          // Stopped
+          (async () => {
+            const stopped = await ContentScript.checkStop();
+            if (stopped) {
+              clearInterval(checkImagesLoaded);
+              return resolve(stopped);
+            }
+          })();
+
+          // Finish it if there is no lazy image remained
           if (ContentScript.lazyImgs.length === 0) {
             clearInterval(checkImagesLoaded);
+            chrome.runtime.sendMessage({log: 'Lazy images loaded...'});
+
             resolve();
           } else {
             for (let i = ContentScript.lazyImgs.length - 1; i >= 0; i--) {
@@ -559,11 +622,16 @@ class ContentScript {
                 }
               });
 
-              // If it hasn't been loaded for the third time, ignore it
-              if (ContentScript.lazyTries[className] && ContentScript.lazyTries[className] >= 3) {
+              // Check with its size if it is loaded, to remove it from the array
+              if ((lazyImg.naturalWidth > 1 && lazyImg.naturalHeight > 1)) {
                 ContentScript.lazyImgs.splice(i, 1);
               } else {
-                ContentScript.lazyTries[className] = ContentScript.lazyTries[className] ? ContentScript.lazyTries[className] + 1 : 1;
+                // If it hasn't been loaded for the third time, ignore it
+                if (ContentScript.lazyTries[className] && ContentScript.lazyTries[className] >= 3) {
+                  ContentScript.lazyImgs.splice(i, 1);
+                } else {
+                  ContentScript.lazyTries[className] = ContentScript.lazyTries[className] ? ContentScript.lazyTries[className] + 1 : 1;
+                }
               }
             }
           }
@@ -608,6 +676,7 @@ class ContentScript {
       try {
         const htmlBody = await Common.getElement('html, body');
         htmlBody.style.setProperty('scroll-behavior', 'unset', 'important');
+        await chrome.runtime.sendMessage({log: 'Customization of scrolling behaviour (if any) disabled...'});
         resolve();
       } catch (error) {
         console.log(error);
@@ -632,6 +701,8 @@ class ContentScript {
               e.stopPropagation();
             })
           });
+
+          await chrome.runtime.sendMessage({log: 'All <a>s default event prevented and propagation stopped...'});
 
           resolve();
         } catch (error) {
@@ -676,6 +747,8 @@ class ContentScript {
             element.replaceWith(clone);
           });
 
+          await chrome.runtime.sendMessage({log: 'Mouse events (up, down, click) disabled, default event prevented and propagation stopped...'});
+
           resolve();
         } catch (error) {
           console.log(error);
@@ -693,7 +766,8 @@ class ContentScript {
     return new Promise(async (resolve, reject) => {
       try {
         if (Boolean(await Common.getLocalStorage('stopped'))) {
-          return resolve('Stopped by user.');
+          await chrome.runtime.sendMessage({log: 'Stopped by user!'});
+          return resolve('stopped');
         }
 
         resolve(false);
@@ -710,12 +784,34 @@ class ContentScript {
       });
   }
 
+  /**
+   * Store body.innerHTML as a backup into localStorage to be restored as user clicks on `Restore`
+   * @returns {Promise<void>}
+   */
   static async backupDOM() {
-    const alreadyAudited = await Common.getElement('.oxyplug-tech-seo');
-    if (!alreadyAudited) {
-      const body = await Common.getElement('body');
-      await Common.setLocalStorage({backup: body.innerHTML});
-    }
+    return new Promise(async (resolve, reject) => {
+      try {
+        const alreadyAudited = await Common.getElement('.oxyplug-tech-seo');
+        if (!alreadyAudited) {
+          const body = await Common.getElement('body');
+
+          // Store body backup into localStorage
+          let backups = await Common.getLocalStorage('backups');
+          if (backups) {
+            backups[location.host] = body.innerHTML;
+          } else {
+            backups = {[location.host]: body.innerHTML};
+          }
+          await Common.setLocalStorage({backups});
+          await chrome.runtime.sendMessage({log: 'Took a backup from the original body...'});
+        }
+
+        resolve();
+      } catch (error) {
+        console.log(error);
+        reject(error);
+      }
+    });
   }
 
   /**
@@ -732,6 +828,7 @@ class ContentScript {
         const alreadyAudited = await Common.getElement('.oxyplug-tech-seo');
         if (alreadyAudited) {
           await ContentScript.resetElements();
+          await chrome.runtime.sendMessage({log: 'Previous elements reset...'});
         } else {
           await ContentScript.unsetDefaultScrollBehavior();
           await ContentScript.disableATags();
@@ -740,18 +837,25 @@ class ContentScript {
           await ContentScript.markLazies(imgs);
           if (ContentScript.lazyImgs.length) {
             // Scroll the page
-            await ContentScript.scrollPage();
+            const result = await ContentScript.scrollPage();
 
             // Mark scrollables like carousels and scroll them to load lazy images
-            await ContentScript.markScrollables();
-            await ContentScript.scrollScrollables();
-            await ContentScript.waitForLazies();
+            if (result !== 'stopped') {
+              await ContentScript.markScrollables();
+              const result = await ContentScript.scrollScrollables();
+              if (result !== 'stopped') {
+                await ContentScript.waitForLazies();
+              }
+            }
           }
         }
 
         // Stopped
         const stopped = await ContentScript.checkStop();
-        if (stopped) return reject(stopped);
+        if (stopped) {
+          await Common.setLocalStorage({is_processing: false, stopped: false});
+          return resolve(stopped);
+        }
 
         // The `imgs` needed to be declared twice since `removeEventListeners` method might destroy some images
         const imgs = await Common.getElements('img');

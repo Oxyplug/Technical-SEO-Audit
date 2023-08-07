@@ -13,9 +13,12 @@ class Popup {
         // Reset the exclusion notification that has already been run
         await Common.setLocalStorage({exclusion_already_alerted: false});
 
-        // Stop and start elements
+        // Buttons
         Popup.start = await Common.getElement('#start');
         Popup.stop = await Common.getElement('#stop');
+        Popup.buttonGroups = await Common.getElements('.button-group');
+        Popup.clearResult = await Common.getElement('#clear-result');
+        Popup.reload = await Common.getElement('#reload');
         Popup.restore = await Common.getElement('#restore');
 
         // Get current tab
@@ -53,6 +56,9 @@ class Popup {
           await Popup.restoreAble();
         }
 
+        // Load and show logs
+        await Popup.loadLogs();
+
         // Max image filesize
         let maxImageFilesize = Number(await Common.getLocalStorage('max_image_filesize'));
         maxImageFilesize = isNaN(maxImageFilesize) ? 150 : Math.abs(maxImageFilesize);
@@ -85,7 +91,7 @@ class Popup {
         maxScrollingEl.value = maxScrolling;
         maxScrollingEl.addEventListener('input', (el) => {
           let value = Number(el.target.value);
-          value = isNaN(value) || value < 0 ? 0 : value;
+          value = isNaN(value) || value < 0 || value > Common.oxyplugScrollLimit ? 0 : value;
           Common.setLocalStorage({max_scrolling: value});
         });
 
@@ -161,7 +167,7 @@ class Popup {
         const exclusions = await Common.getLocalStorage('exclusions');
         if (exclusions && exclusions[Popup.currentHost] && exclusions[Popup.currentHost].length) {
           const exclusionsEl = await Common.getElement('#exclusions');
-          const exclusionsUl = await exclusionsEl.querySelector('ul');
+          const exclusionsUl = await exclusionsEl.querySelector(':scope > ul');
           const noExclusionsEl = await exclusionsEl.querySelector('p');
 
           // Remove `No exclusions`
@@ -183,7 +189,7 @@ class Popup {
               const index = exclusions[Popup.currentHost].indexOf(exclusion);
               if (index !== -1)
                 exclusions[Popup.currentHost].splice(index, 1);
-              await Common.setLocalStorage({exclusions: exclusions});
+              await Common.setLocalStorage({exclusions});
               exclusionLi.remove();
 
               // No exclusions.
@@ -198,6 +204,10 @@ class Popup {
         // Start Analyzing
         Popup.start.addEventListener('click', async () => {
           try {
+            await Common.setLocalStorage({logsBoxIsHidden: false});
+            await Popup.clearLogs();
+            await Popup.log('Auditing started...');
+            await Popup.showLogs();
             await Popup.resetList();
             await Common.setLocalStorage({is_processing: true, stopped: false});
             await Popup.processingState(true);
@@ -214,33 +224,85 @@ class Popup {
           await Popup.processingState(false);
         });
 
+        // Show buttons in button group
+        const closeOverlay = await Common.getElement('#close-overlay');
+        Popup.buttonGroups.forEach(buttonGroup => {
+          buttonGroup.addEventListener('click', async () => {
+            const ul = buttonGroup.querySelector(':scope > ul');
+            if (ul.offsetParent !== null) {
+              closeOverlay.style.display = ul.style.display = 'none';
+              buttonGroup.classList.remove('open');
+            } else {
+              closeOverlay.style.display = ul.style.display = 'block';
+              buttonGroup.classList.add('open');
+            }
+          });
+        });
+
+        // Close buttonGroups by clicking closeOverlay
+        closeOverlay.addEventListener('click', () => {
+          Popup.buttonGroups.forEach(buttonGroup => {
+            const ul = buttonGroup.querySelector(':scope > ul');
+            closeOverlay.style.display = ul.style.display = 'none';
+            buttonGroup.classList.remove('open');
+          });
+        });
+
+        // Clear Xs by reloading the page
+        Popup.reload.addEventListener('click', async () => {
+          await chrome.tabs.sendMessage(Popup.currentTab.id, {reload: true});
+          await Popup.resetList();
+          await Popup.clearBackup();
+        });
+
         // Clear Xs and restore the backup DOM
-        Popup.restore.addEventListener('click', async () => {
+        Popup.restore.addEventListener('click', async (e) => {
+          if (e.target.disabled) {
+            e.preventDefault();
+            return;
+          }
+
           await chrome.tabs.sendMessage(Popup.currentTab.id, {restore: true});
           await Popup.resetList();
+          await Popup.clearBackup();
+        });
+
+        // Close/Hide logs box
+        const hideLogs = await Common.getElement('#progress-logs > button');
+        hideLogs.addEventListener('click', async () => {
+          await Common.setLocalStorage({logsBoxIsHidden: true});
+          hideLogs.parentElement.style.display = 'none';
         });
 
         // Find issues on the page
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           return new Promise(async (resolve, reject) => {
             try {
-              await Common.setLocalStorage({is_processing: false});
-              await Popup.processingState(false);
-              await Popup.restoreAble();
+              if (request.log) {
+                await Popup.log(request.log);
+              } else if (request.progress) {
+                await Popup.progress(request.progress);
+              } else {
+                await Common.setLocalStorage({is_processing: false});
+                await Popup.processingState(false);
+                await Popup.restoreAble();
 
-              if (request.issues) {
-                if (Popup.issues)
-                  Popup.issues[Popup.currentHost] = request.issues;
-                else
-                  Popup.issues = {[Popup.currentHost]: request.issues};
+                if (request.issues) {
+                  if (Popup.issues)
+                    Popup.issues[Popup.currentHost] = request.issues;
+                  else
+                    Popup.issues = {[Popup.currentHost]: request.issues};
 
-                await Popup.loadList(request.issues);
-                await Popup.start2Restart();
-                await Popup.stopAble();
-                await Popup.highlightActiveUrl();
-                await Popup.highlightActiveFilter();
-              } else if (request.showIssues) {
-                await Common.showIssues(request.showIssues, request.issueTypes, 'popup');
+                  await Popup.loadList(request.issues);
+                  await Popup.start2Restart();
+                  await Popup.stopAble();
+                  await Popup.highlightActiveUrl();
+                  await Popup.highlightActiveFilter();
+                  await Popup.log('Auditing finished.');
+                  await Popup.progress(100);
+                } else if (request.showIssues) {
+                  await Common.showIssues(request.showIssues, request.issueTypes, 'popup');
+                }
               }
 
               resolve({status: true});
@@ -305,7 +367,7 @@ class Popup {
 
             // Filter the list
             const filterTarget = 'data-' + el.id;
-            const issueListItems = document.querySelectorAll('#oxyplug-issue-list ul li');
+            const issueListItems = document.querySelectorAll('#oxyplug-issue-list > ul li');
             if (filterTarget === 'data-all-issue') {
               issueListItems.forEach((li) => {
                 li.style.display = 'block';
@@ -394,7 +456,7 @@ class Popup {
       try {
         const activeUrl = await Common.getLocalStorage('active_url');
         if (activeUrl) {
-          const li = await Common.getElement('#oxyplug-issue-list ul li[data-target="' + activeUrl + '"]');
+          const li = await Common.getElement('#oxyplug-issue-list > ul li[data-target="' + activeUrl + '"]');
           if (li) {
             li.classList.add('active');
           }
@@ -439,14 +501,33 @@ class Popup {
     return new Promise(async (resolve) => {
       if (Popup.issues && Popup.issues[Popup.currentHost]) {
         Popup.issues[Popup.currentHost]['issues'] = {};
-        for (const key of Object.keys(Popup.issues[Popup.currentHost]['count'])) {
-          Popup.issues[Popup.currentHost]['count'][key] = 0;
-          await Popup.updateFilters(key, 0);
+        if (Popup.issues[Popup.currentHost]['count']) {
+          for (const key of Object.keys(Popup.issues[Popup.currentHost]['count'])) {
+            Popup.issues[Popup.currentHost]['count'][key] = 0;
+            await Popup.updateFilters(key, 0);
+          }
+          await Popup.updateFilters('all-issue', 0);
         }
-        await Popup.updateFilters('all-issue', 0);
         await Common.setLocalStorage({issues: Popup.issues});
-        const issueList = await Common.getElement('#oxyplug-issue-list ul');
+        const issueList = await Common.getElement('#oxyplug-issue-list > ul');
         issueList.innerHTML = '';
+      }
+
+      resolve();
+    });
+  }
+
+  /**
+   * Clear backup
+   * @returns {Promise<unknown>}
+   */
+  static async clearBackup() {
+    return new Promise(async (resolve) => {
+      const backups = await Common.getLocalStorage('backups');
+      if (backups && backups[Popup.currentHost]) {
+        delete backups[Popup.currentHost];
+        await Common.setLocalStorage({backups});
+        await Popup.restoreAble(true);
       }
 
       resolve();
@@ -461,14 +542,23 @@ class Popup {
   static async loadList(issues) {
     return new Promise(async (resolve, reject) => {
       try {
-        const lastAuditDate = issues.lastAuditDate ?? 'N/A';
+        let lastAuditDate = 'N/A';
+        let lastAuditPage = 'N/A';
+        if (issues.last_audit) {
+          lastAuditDate = issues.last_audit.date;
+          lastAuditPage = issues.last_audit.page;
+        }
+
         const issuesCount = issues.count;
         issues = issues.issues;
         const issuesArray = Object.keys(issues);
 
-        // Set last audit date
-        const lastAuditDateEl = await Common.getElement('#last-audit-date > span');
-        lastAuditDateEl.innerText = lastAuditDate;
+        // Set last audit page and date
+        const lastAuditEl = await Common.getElement('#last-audit');
+        const pageEl = lastAuditEl.querySelector('div:nth-of-type(1) > span');
+        pageEl.innerText = lastAuditPage;
+        const dateEl = lastAuditEl.querySelector('div:nth-of-type(2) > span');
+        dateEl.innerText = lastAuditDate;
 
         if (issuesArray.length) {
           // Sort
@@ -478,7 +568,7 @@ class Popup {
           }, {});
 
           // Empty the list of issues
-          const issueList = await Common.getElement('#oxyplug-issue-list ul');
+          const issueList = await Common.getElement('#oxyplug-issue-list > ul');
           issueList.innerHTML = '';
 
           // Make the list of issues
@@ -514,21 +604,11 @@ class Popup {
               el.target.classList.add('active');
               Common.setLocalStorage({active_url: className});
 
-              const message = {
+              chrome.tabs.sendMessage(Popup.currentTab.id, {
                 scrollTo: className,
                 messages: details.messages,
                 issueTypes: details.issueTypes
-              };
-
-              const callback = () => {
-                if (!chrome.runtime.lastError) {
-                  console.log('fine');
-                } else {
-                  console.log(chrome.runtime.lastError);
-                }
-              };
-
-              chrome.tabs.sendMessage(Popup.currentTab.id, message, callback);
+              });
             };
 
             // Filter the list
@@ -542,7 +622,7 @@ class Popup {
             if (!liExists) {
               // Exclude image button
               const exclusionsEl = await Common.getElement('#exclusions');
-              const exclusionsUl = await exclusionsEl.querySelector('ul');
+              const exclusionsUl = await exclusionsEl.querySelector(':scope > ul');
               const excludeButton = document.createElement('button');
               excludeButton.classList.add('oxyplug-icon-exclude');
               excludeButton.onclick = async (e) => {
@@ -555,12 +635,14 @@ class Popup {
                     // Exclude src
                     const exclusion = item['url'];
                     let exclusions = await Common.getLocalStorage('exclusions');
-                    if (!exclusions || !exclusions[Popup.currentHost])
+                    if (!exclusions || Object.keys(exclusions).length === 0)
                       exclusions = {[Popup.currentHost]: [exclusion]};
+                    else if (!exclusions[Popup.currentHost])
+                      exclusions[Popup.currentHost] = [exclusion];
                     else if (!exclusions[Popup.currentHost].includes(exclusion))
                       exclusions[Popup.currentHost].push(exclusion);
 
-                    await Common.setLocalStorage({exclusions: exclusions});
+                    await Common.setLocalStorage({exclusions});
 
                     // Reset issue list
                     const keys = [];
@@ -581,7 +663,7 @@ class Popup {
                       const index = exclusions[Popup.currentHost].indexOf(exclusion);
                       if (index !== -1)
                         exclusions[Popup.currentHost].splice(index, 1);
-                      await Common.setLocalStorage({exclusions: exclusions});
+                      await Common.setLocalStorage({exclusions});
                       exclusionLi.remove();
 
                       // No exclusions.
@@ -669,8 +751,6 @@ class Popup {
 
           // Highlight active url
           await Popup.highlightActiveUrl();
-        } else {
-          await Common.showIssues(['No issues found on the page :)'], 'info', 'popup');
         }
 
         // Show issues count on filters
@@ -754,7 +834,7 @@ class Popup {
       try {
         const issueList = await Common.getElement('#oxyplug-issue-list');
         issueList.querySelector('.oxyplug-tabs').style.display = status;
-        issueList.querySelector('ul').style.display = status;
+        issueList.querySelector(':scope > ul').style.display = status;
 
         resolve();
       } catch (error) {
@@ -791,9 +871,10 @@ class Popup {
    * @returns {Promise<void>}
    */
   static async restoreAble(able = false) {
-    const backup = Boolean(await Common.getLocalStorage('backup'));
-    Popup.restore.disabled = able === true ? able : !backup;
-  };
+    const backups = await Common.getLocalStorage('backups');
+    const backup = backups && backups[Popup.currentHost];
+    Popup.clearResult.disabled = Popup.reload.disabled = Popup.restore.disabled = able === true ? able : !backup;
+  }
 
   /**
    * Get current tab domain i.e. location.hostname
@@ -818,6 +899,99 @@ class Popup {
       .catch(response => {
         return response;
       });
+  }
+
+  /**
+   * Clear logs from localStorage and list
+   * @returns {Promise<void>}
+   */
+  static async clearLogs() {
+    // localStorage
+    const logs = await Common.getLocalStorage('logs');
+    if (logs && logs[Popup.currentHost]) {
+      delete logs[Popup.currentHost];
+      await Common.setLocalStorage({logs});
+    }
+
+    // List
+    const progressLogsListEl = await Common.getElement('#progress-logs > ul');
+    progressLogsListEl.innerHTML = '';
+  }
+
+  /**
+   * Add logs
+   * @param text
+   * @returns {Promise<void>}
+   */
+  static async log(text) {
+    const addLog = async ({logs, text}) => {
+      // Add to localStorage
+      await Common.setLocalStorage({logs});
+
+      // Add to logs list
+      await Popup.addToLogsList(text);
+    }
+
+    let logs = await Common.getLocalStorage('logs');
+    if (!logs || Object.keys(logs).length === 0) {
+      logs = {[Popup.currentHost]: [text]};
+      await addLog({logs, text});
+    } else if (!logs[Popup.currentHost]) {
+      logs[Popup.currentHost] = [text];
+      await addLog({logs, text});
+    } else if (!logs[Popup.currentHost].includes(text)) {
+      logs[Popup.currentHost].push(text);
+      await addLog({logs, text});
+    }
+  }
+
+  /**
+   * Show logs list
+   * @returns {Promise<void>}
+   */
+  static async showLogs() {
+    const logsBoxIsHidden = await Common.getLocalStorage('logsBoxIsHidden');
+    if (logsBoxIsHidden === false) {
+      const progressLogsEl = await Common.getElement('#progress-logs');
+      progressLogsEl.style.display = 'block';
+    }
+  }
+
+  /**
+   * Load logs
+   * @returns {Promise<void>}
+   */
+  static async loadLogs() {
+    const logs = await Common.getLocalStorage('logs');
+    if (logs && logs[Popup.currentHost]) {
+      for (const logText of logs[Popup.currentHost]) {
+        await Popup.addToLogsList(logText);
+      }
+      await Popup.showLogs();
+    }
+  }
+
+  /**
+   * Add log to the list
+   * @param text
+   * @returns {Promise<void>}
+   */
+  static async addToLogsList(text) {
+    const newLi = document.createElement('li');
+    newLi.innerText = text;
+    const progressLogsListEl = await Common.getElement('#progress-logs > ul');
+    progressLogsListEl.append(newLi);
+  }
+
+  /**
+   * Update progress bar
+   * @param percent
+   * @returns {Promise<void>}
+   */
+  static async progress(percent) {
+    const auditProgress = await Common.getElement('#audit-progress');
+    auditProgress.querySelector('div').style.width = `${percent}%`;
+    auditProgress.querySelector('span').innerText = `${percent}%`;
   }
 }
 
