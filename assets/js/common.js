@@ -66,7 +66,6 @@ class Common {
       shadowWrap = document.createElement('div');
       shadowWrap.id = sectionId;
       document.body.appendChild(shadowWrap);
-
       const shadowRoot = shadowWrap.attachShadow({mode: 'open'});
       const stylePathCommon = chrome.runtime.getURL('assets/css/common.css');
       const styleName = caller === 'content' ? 'shadow-content' : 'popup';
