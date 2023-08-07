@@ -34,6 +34,7 @@ class Audit {
         for (let img of imgs) {
           // Stopped
           const stopped = await ContentScript.checkStop();
+
           if (stopped) return resolve(await Audit.getEmptyIssues());
 
           let excluded = false;
@@ -66,6 +67,7 @@ class Audit {
             if (await Audit.LCP(img) === false) LCPsIssuesCount++;
           }
         }
+
         await chrome.runtime.sendMessage({log: 'All images audited...'});
 
         /**
@@ -883,7 +885,6 @@ class Audit {
         }
 
         await chrome.runtime.sendMessage({log: 'Positioned and styled...'});
-
         resolve();
       } catch (error) {
         console.log(error);

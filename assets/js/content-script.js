@@ -123,6 +123,7 @@ class ContentScript {
   static async markScrollables() {
     return new Promise(async (resolve, reject) => {
       await chrome.runtime.sendMessage({log: 'Marking scrollables to be scrolled to load lazy images...'});
+
       try {
         ContentScript.scrollables = [];
         const allElements = await Common.getElements('body *:not(script, style, link, meta)');
@@ -166,6 +167,7 @@ class ContentScript {
         }
 
         await chrome.runtime.sendMessage({progress: 60});
+
         resolve();
       } catch (error) {
         console.log(error);
@@ -432,6 +434,7 @@ class ContentScript {
         const scrollEndPointWithTolerance = scrollable.scrollWidth - scrollable.clientWidth - 1;
         // Scroll to the start point depending on the layout
         scrollable.scrollLeft = ContentScript.rtl ? scrollEndPointWithTolerance : 0;
+
         resolve(await ContentScript.scrollForwardHorizontally(scrollable, scrollEndPointWithTolerance));
       } catch (error) {
         console.log(error);
@@ -605,6 +608,7 @@ class ContentScript {
           if (ContentScript.lazyImgs.length === 0) {
             clearInterval(checkImagesLoaded);
             chrome.runtime.sendMessage({log: 'Lazy images loaded...'});
+
             resolve();
           } else {
             for (let i = ContentScript.lazyImgs.length - 1; i >= 0; i--) {
