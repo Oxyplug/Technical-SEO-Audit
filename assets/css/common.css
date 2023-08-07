@@ -176,7 +176,7 @@
 
 /* Modal Ends Here */
 
-.oxyplug-list ul {
+.oxyplug-list > ul {
   margin: 0;
   padding: 0;
   background-color: var(--oxyplug-gray);
@@ -187,7 +187,7 @@
   transition: height 0.3s;
 }
 
-.oxyplug-list ul li {
+.oxyplug-list > ul li {
   padding: 3px 10px 6px 5px;
   margin-bottom: 1px;
   font-size: 12px;
@@ -199,10 +199,10 @@
   transition: border-left 0.2s;
 }
 
-.oxyplug-list ul li:nth-of-type(odd) {
+.oxyplug-list > ul li:nth-of-type(odd) {
   background-color: var(--oxyplug-darker-black);
 }
 
-.oxyplug-list ul li:nth-of-type(even) {
+.oxyplug-list > ul li:nth-of-type(even) {
   background-color: var(--oxyplug-dark-black);
 }

@@ -11,6 +11,7 @@ class Audit {
    */
   static async all(imgs) {
     return new Promise(async (resolve, reject) => {
+      await chrome.runtime.sendMessage({log: 'Auditing images...'});
       try {
         Audit.issues = {};
         await window.scroll({top: 0});
@@ -33,7 +34,7 @@ class Audit {
         for (let img of imgs) {
           // Stopped
           const stopped = await ContentScript.checkStop();
-          if (stopped) return reject(stopped);
+          if (stopped) return resolve(await Audit.getEmptyIssues());
 
           let excluded = false;
           if (exclusions && exclusions[location.host]) {
@@ -65,6 +66,7 @@ class Audit {
             if (await Audit.LCP(img) === false) LCPsIssuesCount++;
           }
         }
+        await chrome.runtime.sendMessage({log: 'All images audited...'});
 
         /**
          * By changing 1st image wrap, it would change the width and height of 2nd image wrap,
@@ -79,7 +81,7 @@ class Audit {
         await Audit.hideOverlays();
 
         resolve({
-          lastAuditDate: await Audit.getFormattedDate(),
+          last_audit: {date: await Audit.getFormattedDate(), page: location.href},
           issues: Audit.issues,
           count: {
             'src-issue': srcIssuesCount,
@@ -449,7 +451,7 @@ class Audit {
         if (img) {
           const src = img.currentSrc != '' ? img.currentSrc : img.src;
           if (src.toLowerCase().endsWith('.svg')) {
-            return resolve(false);
+            return resolve(true);
           }
 
           let has2x = false;
@@ -550,11 +552,11 @@ class Audit {
       try {
         if (!Audit.LCPs.includes(img) && await Audit.isOffscreen(img)) {
           const issueType = 'lazyLoadIssue';
-          if (!img.hasAttribute('loading')) {
+          if (!img.hasAttribute('loading') || img.dataset.hasLoading === 'no') {
             return resolve(await Audit.addToIssues('The loading attribute is not set.', issueType, img));
           }
 
-          if (img.getAttribute('loading').trim() !== 'lazy') {
+          if (img.getAttribute('loading').trim() !== 'lazy' && img.dataset.hasLoading !== 'lazy') {
             return resolve(await Audit.addToIssues('The loading attribute doesn\'t equal `lazy`.', issueType, img));
           }
         }
@@ -870,6 +872,7 @@ class Audit {
    */
   static async setImageSize() {
     return new Promise(async (resolve, reject) => {
+      await chrome.runtime.sendMessage({log: 'Positioning and styling...'});
       try {
         const imgWraps = await Common.getElements('.oxyplug-tech-seo:not(.positioned)');
         for (const imgWrap of imgWraps) {
@@ -878,6 +881,8 @@ class Audit {
           imgWrap.classList.add('positioned');
           imgWrap.style.cssText = `position:relative;margin:auto;width:${imgWidth}px;height:${imgHeight}px`;
         }
+
+        await chrome.runtime.sendMessage({log: 'Positioned and styled...'});
 
         resolve();
       } catch (error) {
@@ -939,6 +944,7 @@ class Audit {
             }
           }
           await window.scroll({top: 0});
+          await chrome.runtime.sendMessage({log: 'Overlays on the images got hidden...'});
 
           resolve();
         } catch (error) {
@@ -972,5 +978,31 @@ class Audit {
         console.log(error)
         return 'N/A';
       });
+  }
+
+  /**
+   * Get empty issues
+   * @returns {Promise<{count: {"next-gen-formats-issue": number, "nx-issue": number, "src-issue": number, "load-fails-issue": number, "filesize-issue": number, "lazy-load-issue": number, "height-issue": number, "lcp-issue": number, "alt-issue": number, "width-issue": number, "all-issue": number, "rendered-size-issue": number, "aspect-ratio-issue": number}, issues: {}, last_audit: {date: string, page: string}}>}
+   */
+  static async getEmptyIssues() {
+    return {
+      last_audit: {date: await Audit.getFormattedDate(), page: location.href},
+      issues: {},
+      count: {
+        'src-issue': 0,
+        'alt-issue': 0,
+        'width-issue': 0,
+        'height-issue': 0,
+        'rendered-size-issue': 0,
+        'aspect-ratio-issue': 0,
+        'filesize-issue': 0,
+        'load-fails-issue': 0,
+        'nx-issue': 0,
+        'next-gen-formats-issue': 0,
+        'lazy-load-issue': 0,
+        'lcp-issue': 0,
+        'all-issue': 0,
+      }
+    }
   }
 }

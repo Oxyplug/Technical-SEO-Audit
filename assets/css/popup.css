@@ -68,10 +68,18 @@ button {
   font-weight: 500;
 }
 
+#close-overlay {
+  display: none;
+  position: fixed;
+  width: 100%;
+  height: 100vh;
+  z-index: 10;
+}
+
 /* Modal Starts Here */
 .oxyplug-modal {
   --h-space: 20px;
-  z-index: 1;
+  z-index: 10;
   height: calc(100% - var(--h-space));
   padding-top: var(--h-space);
 }
@@ -80,7 +88,7 @@ button {
 
 /* Main Starts Here */
 body {
-  width: 360px;
+  width: 380px;
   padding: 8px;
   margin: 0;
   outline: none;
@@ -93,11 +101,44 @@ label {
   font-weight: 700;
 }
 
+.button-group {
+  position: relative;
+}
+
+.button-group.open > button {
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.button-group > ul {
+  display: none;
+  list-style: none;
+  background: var(--oxyplug-white-color);
+  width: 100%;
+  position: absolute;
+  left: 0;
+  z-index: 20;
+  padding: 0;
+  margin: 0;
+}
+
+.button-group > ul > li {
+  border-bottom: 1px solid var(--oxyplug-lightest-gray);
+}
+
+.button-group > ul button {
+  cursor: pointer;
+  width: 100%;
+  background: none;
+  border: none;
+  outline: none;
+}
+
 .button {
   cursor: pointer;
   transition: box-shadow 0.3s;
   color: var(--oxyplug-white-color);
-  padding: 10px 22px;
+  padding: 10px 20px;
   font-size: 1.3em;
   font-weight: 700;
   border-radius: 3px;
@@ -114,7 +155,8 @@ label {
   font-size: 1em;
 }
 
-.button:not(:disabled):hover {
+.button:not(:disabled):hover,
+.button-group > ul button:not(:disabled):hover {
   box-shadow: inset 0 0 200px rgba(0, 0, 0, 0.1);
 }
 
@@ -239,7 +281,7 @@ nav > a {
   margin: 5px 0 15px;
 }
 
-#oxyplug-is-processing > div {
+#oxyplug-is-processing > div:first-of-type {
   border: 30px solid var(--oxyplug-blue);
   border-left-color: var(--oxyplug-red);
   border-top-color: var(--oxyplug-yellow);
@@ -270,14 +312,128 @@ nav > a {
   }
 }
 
+.progress-container {
+  position: relative;
+  width: 100%;
+  height: 20px;
+  background-color: var(--oxyplug-lightest-gray);
+  border: 2px solid var(--oxyplug-lightest-gray);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.progress-bar {
+  background-image: linear-gradient(
+    45deg,
+    var(--oxyplug-white-color) 25%,
+    var(--oxyplug-aqua) 25%,
+    var(--oxyplug-aqua) 50%,
+    var(--oxyplug-white-color) 50%,
+    var(--oxyplug-white-color) 75%,
+    var(--oxyplug-aqua) 75%,
+    var(--oxyplug-aqua)
+  );
+  background-size: 1rem 1rem;
+  animation: progress-bar-stripes 1s linear infinite;
+  height: 100%;
+  width: 0;
+}
+
+.progress-container > span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-weight: bold;
+  font-size: 1.3em;
+  text-shadow: 0 0 5px var(--oxyplug-black);
+  color: var(--oxyplug-white-color);
+  user-select: none;
+}
+
+@-webkit-keyframes progress-bar-stripes {
+  from {
+    background-position: 0 0;
+  }
+
+  to {
+    background-position: 1rem 0;
+  }
+}
+
+@keyframes progress-bar-stripes {
+  from {
+    background-position: 0 0;
+  }
+
+  to {
+    background-position: 1rem 0;
+  }
+}
+
+#progress-logs {
+  display: none;
+  color: var(--oxyplug-dark-black);
+  font-size: 11px;
+  line-height: 1.5;
+  position: relative;
+}
+
+#progress-logs > button {
+  position: absolute;
+  right: 3px;
+  top: 3px;
+  padding: 0 3px;
+  font-size: 20px;
+  line-height: 0.9;
+  border: none;
+  color: var(--oxyplug-dark-black);
+  cursor: pointer;
+}
+
+#progress-logs > ul {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 10px;
+}
+
+#progress-logs > ul li::marker {
+  content: "> ";
+  color: var(--oxyplug-lighter-gray);
+}
+
+#progress-logs > ul li:last-of-type::marker {
+  color: var(--oxyplug-aqua);
+}
+
 /* Main Ends Here */
 
 /* Home Page Starts Here */
-#last-audit-date {
-  margin: 5px 0 10px;
-  color: var(--oxyplug-dark-black);
-  font-style: italic;
-  font-size: 11px;
+#main-buttons {
+  display: flex;
+  justify-content: space-between;
+  gap: 5px;
+}
+
+#main-buttons button {
+  flex-grow: 1;
+  padding: 8px;
+  font-weight: 500;
+}
+
+#restore > span {
+  display: block;
+  font-size: 0.7em;
+}
+
+.info-box {
+  background: var(--oxyplug-lightest-gray);
+  border: 1px solid var(--oxyplug-lighter-gray);
+  border-radius: 3px;
+  padding: 3px 6px;
+  margin: 5px 0;
+  line-height: 1.7;
 }
 
 #oxyplug-issue-list ul li:hover,

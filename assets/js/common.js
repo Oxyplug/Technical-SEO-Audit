@@ -1,4 +1,6 @@
 class Common {
+  static oxyplugScrollLimit = 50000;
+
   /**
    * Make modal actions
    * @param modalId
