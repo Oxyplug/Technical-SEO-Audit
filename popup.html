@@ -9,9 +9,6 @@
 <body>
 
 <div id="wrapper">
-
-  <div id="close-overlay"></div>
-
   <h1 class="oxyplug-tech-seo-h1">Oxyplug - Technical SEO Audit</h1>
 
   <nav class="oxyplug-section">
@@ -19,6 +16,7 @@
     <button class="button oxyplug-icon-cog" data-target="settings"></button>
     <button class="button oxyplug-icon-exclude" data-target="exclusions"></button>
     <button class="button oxyplug-icon-info" data-target="learn"></button>
+    <button class="button oxyplug-icon-history" data-target="history"></button>
     <a href="https://oxyplug.com" target="_blank">OxyPlug.com</a>
   </nav>
 
@@ -28,17 +26,7 @@
       <div id="main-buttons">
         <button id="start" class="button button-primary">Start</button>
         <button id="stop" class="button button-danger" disabled>Cancel</button>
-        <div class="button-group">
-          <button id="clear-result" class="button button-info">Clear Result ⏷</button>
-          <ul>
-            <li>
-              <button id="reload">Reload Page</button>
-            </li>
-            <li>
-              <button id="restore">Restore <span>Limited functionality</span></button>
-            </li>
-          </ul>
-        </div>
+        <button id="purge-reload" class="button button-info" disabled>Purge & Reload</button>
       </div>
       <div id="oxyplug-issue-list" class="oxyplug-list">
         <div id="last-audit" class="info-box">
@@ -96,8 +84,17 @@
           <button id="lazy-load-issue" class="button button-small">
             Lazy Load<span>0</span>
           </button>
+          <button id="has-space-issue" class="button button-small">
+            Has Space<span>0</span>
+          </button>
+          <button id="preload-lcp-issue" class="button button-small">
+            Preload LCP<span>0</span>
+          </button>
           <button id="lcp-issue" class="button button-small">
-            LCPs<span>0</span>
+            LCP (Image)<span>0</span>
+          </button>
+          <button id="decoding-issue" class="button button-small">
+            Decoding<span>0</span>
           </button>
         </div>
         <ul></ul>
@@ -112,23 +109,36 @@
 
     <div id="settings" class="oxyplug-section">
       <label for="oxyplug-max-image-filesize">Max Image Filesize (KB)</label>
-      <input id="oxyplug-max-image-filesize" type="number" min="1" max="2000">
+      <input id="oxyplug-max-image-filesize" type="number" min="1">
       <div class="h-separator"></div>
 
       <label for="oxyplug-max-image-alt">Max Image Alt (Characters)</label>
-      <input id="oxyplug-max-image-alt" type="number" min="1" max="256">
+      <input id="oxyplug-max-image-alt" type="number" min="1">
       <div class="h-separator"></div>
 
-      <label for="oxyplug-max-scrolling">Max Scrolling (15000 at most)</label>
-      <input id="oxyplug-max-scrolling" type="number" min="1" max="15000">
+      <label for="oxyplug-max-scrolling">Max Scrolling</label>
+      <div class="sub-options">
+        <input id="unlimited-max-scrolling" type="radio" name="max_scrolling" value="u">
+        <label for="unlimited-max-scrolling">Unlimited</label>
+
+        <input id="limited-max-scrolling" type="radio" name="max_scrolling" value="l">
+        <label for="limited-max-scrolling">Limited (15000px at most)</label>
+      </div>
+      <input id="oxyplug-max-scrolling" type="number" min="1">
       <div class="h-separator"></div>
 
-      <label for="oxyplug-x-color-all">X Color</label>
-      <input id="oxyplug-x-color-all" type="color">
-      <div class="h-separator"></div>
+      <div class="next-to-each-other">
+        <div>
+          <label for="oxyplug-x-color-all">X Color</label>
+          <input id="oxyplug-x-color-all" type="color">
+        </div>
 
-      <label for="oxyplug-x-color">X Color (Active)</label>
-      <input id="oxyplug-x-color" type="color">
+        <div>
+          <label for="oxyplug-x-color">X Color (Active)</label>
+          <input id="oxyplug-x-color" type="color">
+        </div>
+      </div>
+
       <div class="h-separator"></div>
 
       <div>
@@ -160,52 +170,12 @@
 
     <div id="learn" class="oxyplug-section">
       <h2>Learn More</h2>
-      <ul>
-        <li>Without src attribute.</li>
-        <li>Without width attribute.</li>
-        <li>Without height attribute.</li>
-        <li>Without alt attribute.</li>
-        <li>
-          The alt attribute length is more than X characters.
-          <a href="https://oxyplug.com#1" target="_blank">Learn More</a>
-        </li>
-        <li>
-          The rendered image dimensions don't equal the original image dimensions.
-          <a href="https://oxyplug.com#2" target="_blank">Learn More</a>
-        </li>
-        <li>
-          The aspect-ratio of the rendered image doesn't equal the aspect-ratio of the original image.
-          <a href="https://oxyplug.com#3" target="_blank">Learn More</a>
-        </li>
-        <li>
-          The image filesize is bigger than X KB.
-          <a href="https://oxyplug.com#4" target="_blank">Learn More</a>
-        </li>
-        <li>
-          The image fails to load with http status code of X.
-          <a href="https://oxyplug.com#5" target="_blank">Learn More</a>
-        </li>
-        <li>
-          No 2x image found for DPR 2 devices.
-          <a href="https://oxyplug.com#6" target="_blank">Learn More</a>
-        </li>
-        <li>
-          The next-gen (WebP, AVIF) is not provided.
-          <a href="https://oxyplug.com#7" target="_blank">Learn More</a>
-        </li>
-        <li>
-          The loading attribute is not set.
-          <a href="https://oxyplug.com#8" target="_blank">Learn More</a>
-        </li>
-        <li>
-          The loading attribute doesn't equal `lazy`.
-          <a href="https://oxyplug.com#9" target="_blank">Learn More</a>
-        </li>
-        <li>
-          LCP => This just shows the big image(s).
-          <a href="https://oxyplug.com#10" target="_blank">Learn More</a>
-        </li>
-      </ul>
+      <ul></ul>
+    </div>
+
+    <div id="history" class="oxyplug-section oxyplug-list">
+      <h2>Latest 10 audits</h2>
+      <ul></ul>
     </div>
 
   </div>

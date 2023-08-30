@@ -4,37 +4,7 @@ class ContentScript {
   static scrollables = [];
   static scrollableIndex = 0;
   static rtl = false;
-
-  static async preventPropagation(els) {
-    const events = ['mousedown', 'mouseup', 'click'];
-    els.forEach((el) => {
-      events.forEach((event) => {
-        el.addEventListener(event, (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        });
-      });
-    });
-  }
-
-  static async deactivateAnchors(spanX) {
-    let isAffectedByAnchorTag = false;
-    let closestAnchorTag = null;
-    let currentElement = spanX.parentElement;
-    while (currentElement && !isAffectedByAnchorTag) {
-      if (currentElement.tagName === 'A') {
-        isAffectedByAnchorTag = true;
-        closestAnchorTag = currentElement;
-      }
-
-      currentElement = currentElement.parentElement;
-    }
-    if (closestAnchorTag) {
-      closestAnchorTag.addEventListener('click', (event) => {
-        event.preventDefault();
-      });
-    }
-  }
+  static oxyplugScrollLimit = 50000;
 
   /**
    * Init
@@ -43,35 +13,51 @@ class ContentScript {
   static async init() {
     ContentScript.issues = {};
     Audit.loadFailsList = await Common.getLocalStorage('load_fails');
-    chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
-      return await new Promise(async (resolve) => {
-        if (request.start === true) {
-          await ContentScript.backupDOM();
-          await ContentScript.startAnalyzing();
-        } else if (request.reload === true) {
-          location.reload();
-        } else if (request.restore === true) {
-          const backups = await Common.getLocalStorage('backups');
-          if (backups && backups[location.host]) {
-            const body = await Common.getElement('body');
-            body.innerHTML = backups[location.host];
-          }
-        } else if (request.scrollTo) {
-          await ContentScript.scrollToPoint(request);
-        } else if (request.newXColor) {
-          await ContentScript.setXColor(request);
-        } else if (request.newXColorAll) {
-          await ContentScript.setXColorAll(request);
-        }
-        resolve();
-      })
-        .then(response => {
-          sendResponse({status: true, message: response});
-        })
-        .catch(error => {
-          sendResponse({status: false, message: error});
-        });
+
+    // Reset data after closing the browser/tab
+    window.addEventListener('unload', async () => {
+      await Common.setLocalStorage({is_processing: false, stopped: true, processingOn: null});
     });
+
+    // Add listener
+    chrome.runtime.onConnect.addListener((port) => {
+      if (port.name === 'oxyplug-tech-seo-audit') {
+        port.onMessage.addListener((request) => {
+          new Promise(async (resolve) => {
+            if (request.start === true) {
+              await ContentScript.startAnalyzing();
+              await Common.setLocalStorage({processingOn: null});
+            } else if (request.reload === true) {
+              location.reload();
+            } else if (request.scrollTo) {
+              await ContentScript.scrollToPoint(request);
+            } else if (request.messages) {
+              await ContentScript.postMessage({
+                showIssues: request.messages,
+                issueTypes: request.issueTypes
+              });
+            } else if (request.newXColor) {
+              await ContentScript.setXColor(request);
+            } else if (request.newXColorAll) {
+              await ContentScript.setXColorAll(request);
+            }
+
+            resolve();
+            return true;
+          });
+        });
+      }
+    });
+  }
+
+  /**
+   * Post message
+   * @param data
+   * @returns {Promise<void>}
+   */
+  static async postMessage(data) {
+    ContentScript.port = chrome.runtime.connect({name: 'oxyplug-tech-seo-audit'});
+    ContentScript.port.postMessage(data);
   }
 
   /**
@@ -81,7 +67,7 @@ class ContentScript {
    */
   static async markLazies(imgs) {
     return new Promise(async (resolve, reject) => {
-      await chrome.runtime.sendMessage({log: 'Marking lazy images to be checked...'});
+      await Common.log('Marking lazy images to be checked...');
       try {
         ContentScript.lazyImgs = [];
         ContentScript.lazyTries = [];
@@ -103,9 +89,9 @@ class ContentScript {
         }
 
         if (ContentScript.lazyImgs.length) {
-          await chrome.runtime.sendMessage({log: 'Marked lazy images...'});
+          await Common.log('Marked lazy images...');
         } else {
-          await chrome.runtime.sendMessage({log: 'No lazy images found to be marked and checked...'});
+          await Common.log('No lazy images found to be marked and checked...');
         }
 
         resolve();
@@ -122,7 +108,7 @@ class ContentScript {
    */
   static async markScrollables() {
     return new Promise(async (resolve, reject) => {
-      await chrome.runtime.sendMessage({log: 'Marking scrollables to be scrolled to load lazy images...'});
+      await Common.log('Marking scrollables to be scrolled to load lazy images...');
 
       try {
         ContentScript.scrollables = [];
@@ -149,7 +135,7 @@ class ContentScript {
             /**
              * Element.offsetTop won't work in this scenario as we are not scrolling the whole page but a div.
              * And if we are to use getBoundingClientRect(), its value keeps changing after scrolling so at first point
-             * it needs to be stored somewhere like dataset and be used afterwards.
+             * it needs to be stored somewhere like dataset and be used afterward.
              */
             const parent = allElements[e].parentElement;
             if (parent.classList.contains('oxyplug-tech-seo-scrollable-y')) {
@@ -163,10 +149,12 @@ class ContentScript {
         }
 
         if (ContentScript.scrollables.length) {
-          await chrome.runtime.sendMessage({log: 'Marked scrollables...'});
+          await Common.log('Marked scrollables...');
         }
 
-        await chrome.runtime.sendMessage({progress: 60});
+        const progress = 60;
+        await ContentScript.postMessage({progress: progress});
+        await Common.setLocalStorage({progress: progress});
 
         resolve();
       } catch (error) {
@@ -177,27 +165,17 @@ class ContentScript {
   }
 
   /**
-   * Make a delay in milliseconds
-   * @param milliseconds
-   * @returns {Promise<unknown>}
-   */
-  static async wait(milliseconds) {
-    return new Promise(resolve => {
-      setTimeout(() => {
-        resolve()
-      }, milliseconds);
-    });
-  }
-
-  /**
    * Load lazy images by scrolling the page
    * @returns {Promise<void>}
    */
   static async scrollPage() {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       try {
-        chrome.runtime.sendMessage({log: 'Scrolling the page to load lazy images...'});
-        chrome.runtime.sendMessage({progress: 20});
+        await Common.log('Scrolling the page to load lazy images...');
+
+        const progress = 20;
+        await ContentScript.postMessage({progress: progress});
+        await Common.setLocalStorage({progress: progress});
 
         const docEl = document.documentElement;
 
@@ -214,8 +192,8 @@ class ContentScript {
           const maxScrolling = await Common.getLocalStorage('max_scrolling');
           if (maxScrolling > 0 && maxScrolling <= scrollLimit) {
             scrollLimit = maxScrolling;
-          } else if (scrollLimit > Common.oxyplugScrollLimit) {
-            scrollLimit = Common.oxyplugScrollLimit;
+          } else if (scrollLimit > ContentScript.oxyplugScrollLimit) {
+            scrollLimit = ContentScript.oxyplugScrollLimit;
           }
 
           const shouldContinue = docEl.clientHeight + docEl.scrollTop < scrollLimit - 1;
@@ -228,12 +206,15 @@ class ContentScript {
             });
 
             // Wait 0.7 second
-            await ContentScript.wait(700);
+            await Common.wait(700);
 
             // Call function again
             await scrollForwardVertically();
           } else {
-            await chrome.runtime.sendMessage({progress: 40});
+            const progress = 40;
+            await ContentScript.postMessage({progress: progress});
+            await Common.setLocalStorage({progress: progress});
+
             await scrollBackwardVertically();
           }
         };
@@ -253,19 +234,18 @@ class ContentScript {
             });
 
             // Wait 0.7 second
-            await ContentScript.wait(700);
+            await Common.wait(700);
 
             // Call function again
             return resolve(await scrollBackwardVertically());
           }
 
-          await chrome.runtime.sendMessage({log: 'Scrolled the page...'});
-
+          await Common.log('Scrolled the page...');
           resolve();
         };
 
         // Start scrolling
-        scrollForwardVertically();
+        await scrollForwardVertically();
       } catch (error) {
         console.log(error);
         reject(error);
@@ -335,7 +315,8 @@ class ContentScript {
       if (stopped) return resolve(stopped);
 
       if (ContentScript.rtl) {
-        if (Math.abs(scrollable.scrollLeft) < scrollEndPoint) {
+        const scrollableScrollLeft = Math.abs(scrollable.scrollLeft);
+        if (scrollableScrollLeft < scrollEndPoint) {
 
           // Scroll Forward
           scrollable.scrollTo({
@@ -344,13 +325,20 @@ class ContentScript {
           });
 
           // Wait 0.7 second
-          await ContentScript.wait(700);
+          await Common.wait(700);
+
+          // Check if the scroll point has not changed, so ignore it since it might have LTR/RTL issue
+          if (scrollableScrollLeft == Math.abs(scrollable.scrollLeft)) {
+            await ContentScript.moreScrollables();
+            return resolve();
+          }
 
           // Call function again
           return resolve(await ContentScript.scrollForwardHorizontally(scrollable, scrollEndPoint));
         }
       } else {
-        if (scrollable.scrollLeft < scrollEndPoint) {
+        const scrollableScrollLeft = scrollable.scrollLeft;
+        if (scrollableScrollLeft < scrollEndPoint) {
           // Scroll Forward
           scrollable.scrollTo({
             left: scrollable.scrollLeft + scrollable.clientWidth,
@@ -358,7 +346,13 @@ class ContentScript {
           });
 
           // Wait 0.7 second
-          await ContentScript.wait(700);
+          await Common.wait(700);
+
+          // Check if the scroll point has not changed, so ignore it since it might have LTR/RTL issue
+          if (scrollableScrollLeft == scrollable.scrollLeft) {
+            await ContentScript.moreScrollables();
+            return resolve();
+          }
 
           // Call function again
           return resolve(await ContentScript.scrollForwardHorizontally(scrollable, scrollEndPoint));
@@ -390,7 +384,7 @@ class ContentScript {
           });
 
           // Wait 0.7 second
-          await ContentScript.wait(700);
+          await Common.wait(700);
 
           // Call function again
           return resolve(await ContentScript.scrollBackwardHorizontally(scrollable, scrollEndPoint));
@@ -405,7 +399,7 @@ class ContentScript {
           });
 
           // Wait 0.7 second
-          await ContentScript.wait(700);
+          await Common.wait(700);
 
           // Call function again
           return resolve(await ContentScript.scrollBackwardHorizontally(scrollable, scrollEndPoint));
@@ -467,7 +461,7 @@ class ContentScript {
         });
 
         // Wait 0.7 second
-        await ContentScript.wait(700);
+        await Common.wait(700);
 
         // Call function again
         return resolve(await ContentScript.scrollForwardVertically(scrollable, scrollEndPoint));
@@ -498,7 +492,7 @@ class ContentScript {
         });
 
         // Wait 0.7 second
-        await ContentScript.wait(700);
+        await Common.wait(700);
 
         // Call function again
         return resolve(await ContentScript.scrollBackwardVertically(scrollable, scrollEndPoint));
@@ -567,7 +561,7 @@ class ContentScript {
    */
   static async scrollScrollables() {
     return new Promise(async (resolve, reject) => {
-      await chrome.runtime.sendMessage({log: 'Scrolling scrollables...'});
+      await Common.log('Scrolling scrollables...');
       try {
         // Iterate over scrollables to scroll
         ContentScript.scrollableIndex = 0;
@@ -575,7 +569,7 @@ class ContentScript {
         if (scrollable) {
           return resolve(await ContentScript.initScroll(scrollable));
         }
-        await chrome.runtime.sendMessage({log: 'Scrolled scrollables...'});
+        await Common.log('Scrolled scrollables...');
         resolve();
       } catch (error) {
         console.log(error);
@@ -589,26 +583,25 @@ class ContentScript {
    * @returns {Promise<unknown>}
    */
   static async waitForLazies() {
-    return new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage({log: 'Waiting for lazy images to load...'});
-      chrome.runtime.sendMessage({progress: 80});
+    return new Promise(async (resolve, reject) => {
+      await Common.log('Waiting for lazy images to load...');
+      const progress = 80;
+      await ContentScript.postMessage({progress: progress});
+      await Common.setLocalStorage({progress: progress});
       try {
-        const checkImagesLoaded = setInterval(() => {
+        const checkImagesLoaded = setInterval(async () => {
 
           // Stopped
-          (async () => {
-            const stopped = await ContentScript.checkStop();
-            if (stopped) {
-              clearInterval(checkImagesLoaded);
-              return resolve(stopped);
-            }
-          })();
+          const stopped = await ContentScript.checkStop();
+          if (stopped) {
+            clearInterval(checkImagesLoaded);
+            return resolve(stopped);
+          }
 
           // Finish it if there is no lazy image remained
           if (ContentScript.lazyImgs.length === 0) {
             clearInterval(checkImagesLoaded);
-            chrome.runtime.sendMessage({log: 'Lazy images loaded...'});
-
+            await Common.log('Lazy images loaded...');
             resolve();
           } else {
             for (let i = ContentScript.lazyImgs.length - 1; i >= 0; i--) {
@@ -676,7 +669,7 @@ class ContentScript {
       try {
         const htmlBody = await Common.getElement('html, body');
         htmlBody.style.setProperty('scroll-behavior', 'unset', 'important');
-        await chrome.runtime.sendMessage({log: 'Customization of scrolling behaviour (if any) disabled...'});
+        await Common.log('Customization of scrolling behaviour (if any) disabled...');
         resolve();
       } catch (error) {
         console.log(error);
@@ -702,8 +695,7 @@ class ContentScript {
             })
           });
 
-          await chrome.runtime.sendMessage({log: 'All <a>s default event prevented and propagation stopped...'});
-
+          await Common.log('All <a>s default event prevented and propagation stopped...');
           resolve();
         } catch (error) {
           console.log(error);
@@ -747,8 +739,7 @@ class ContentScript {
             element.replaceWith(clone);
           });
 
-          await chrome.runtime.sendMessage({log: 'Mouse events (up, down, click) disabled, default event prevented and propagation stopped...'});
-
+          await Common.log('Mouse events (up, down, click) disabled, default event prevented and propagation stopped...');
           resolve();
         } catch (error) {
           console.log(error);
@@ -766,7 +757,7 @@ class ContentScript {
     return new Promise(async (resolve, reject) => {
       try {
         if (Boolean(await Common.getLocalStorage('stopped'))) {
-          await chrome.runtime.sendMessage({log: 'Stopped by user!'});
+          await Common.log('Stopped by user!');
           return resolve('stopped');
         }
 
@@ -785,50 +776,19 @@ class ContentScript {
   }
 
   /**
-   * Store body.innerHTML as a backup into localStorage to be restored as user clicks on `Restore`
-   * @returns {Promise<void>}
-   */
-  static async backupDOM() {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const alreadyAudited = await Common.getElement('.oxyplug-tech-seo');
-        if (!alreadyAudited) {
-          const body = await Common.getElement('body');
-
-          // Store body backup into localStorage
-          let backups = await Common.getLocalStorage('backups');
-          if (backups) {
-            backups[location.host] = body.innerHTML;
-          } else {
-            backups = {[location.host]: body.innerHTML};
-          }
-          await Common.setLocalStorage({backups});
-          await chrome.runtime.sendMessage({log: 'Took a backup from the original body...'});
-        }
-
-        resolve();
-      } catch (error) {
-        console.log(error);
-        reject(error);
-      }
-    });
-  }
-
-  /**
    * Start analyzing
-   * @returns {Promise<{issues: (*|{count: {"height-issue": *, "next-gen-formats-issue": *, "lcp-issue": *, "alt-issue": *, "nx-issue": *, "width-issue": *, "src-issue": *, "rendered-size-issue": *, "aspect-ratio-issue": *, "load-fails-issue": *, "filesize-issue": *, "lazy-load-issue": *}, issues: (*|{})}|{})}>}
+   * @returns {Promise<unknown>}
    */
   static async startAnalyzing() {
     return new Promise(async (resolve, reject) => {
       try {
         // Direction
         ContentScript.rtl = Boolean(await Common.getLocalStorage('rtl_scrolling'));
-
         // To reset, if already audited
         const alreadyAudited = await Common.getElement('.oxyplug-tech-seo');
         if (alreadyAudited) {
           await ContentScript.resetElements();
-          await chrome.runtime.sendMessage({log: 'Previous elements reset...'});
+          await Common.log('Previous elements reset...');
         } else {
           await ContentScript.unsetDefaultScrollBehavior();
           await ContentScript.disableATags();
@@ -853,7 +813,7 @@ class ContentScript {
         // Stopped
         const stopped = await ContentScript.checkStop();
         if (stopped) {
-          await Common.setLocalStorage({is_processing: false, stopped: false});
+          await Common.setLocalStorage({is_processing: false, stopped: false, processingOn: null});
           return resolve(stopped);
         }
 
@@ -861,21 +821,30 @@ class ContentScript {
         const imgs = await Common.getElements('img');
         ContentScript.issues = await Audit.all(imgs);
 
-        // Add issues to storage
-        let issues = await Common.getLocalStorage('issues');
-        if (issues) {
-          issues[location.host] = ContentScript.issues;
-        } else {
-          issues = {[location.host]: ContentScript.issues};
-        }
-        await Common.setLocalStorage({issues: issues});
-        await Common.setLocalStorage({is_processing: false});
+        // Add all issues to storage
+        let allIssues = await Common.getLocalStorage('all_issues');
+        allIssues ? allIssues.push(ContentScript.issues) : allIssues = [ContentScript.issues];
+        allIssues = allIssues.slice(-10);
+        await Common.setLocalStorage({
+          all_issues: allIssues,
+          issues: ContentScript.issues,
+          is_processing: false,
+          processingOn: null
+        });
 
         // Send issues to popup
-        await chrome.runtime.sendMessage({issues: ContentScript.issues});
+        await ContentScript.postMessage({
+          issues: ContentScript.issues,
+          allIssues: allIssues
+        });
+
+        // Log finishing
+        const log = 'Auditing finished.';
+        await Common.log(log);
+        resolve();
       } catch (error) {
         console.log(error);
-        await Common.setLocalStorage({is_processing: false, stopped: false});
+        await Common.setLocalStorage({is_processing: false, stopped: false, processingOn: null});
         reject(error);
       }
     });
@@ -915,9 +884,6 @@ class ContentScript {
             inline: 'center'
           });
         }
-
-        // Store and show issues
-        await chrome.runtime.sendMessage({showIssues: request.messages, issueTypes: request.issueTypes});
 
         resolve();
       } catch (error) {

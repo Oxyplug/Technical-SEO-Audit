@@ -3,6 +3,16 @@ class Popup {
   static start;
   static stop;
 
+  // Default
+  static maxImageFilesizeDefault = 150;
+  static maxImageAltDefault = 150;
+  static maxScrollingDefault = 15000;
+
+  // Max
+  static maxImageFilesizeMax = 2000;
+  static maxImageAltMax = 256;
+  static maxScrollingMax = 15000;
+
   /**
    * Init
    * @returns {Promise<void>}
@@ -10,60 +20,66 @@ class Popup {
   static async init() {
     return new Promise(async (resolve, reject) => {
       try {
+        // Get current tab
+        const currentTab = await Common.getCurrentTab();
+        const currentHost = await Popup.getCurrentHost(currentTab);
+        const currentHref = await Popup.getCurrentHref(currentTab);
+        const processingOn = await Common.getLocalStorage('processingOn');
+
+        // Prevent opening popup while it is processing on another tab
+        if (
+          processingOn &&
+          currentHref &&
+          (processingOn.href !== currentHref || processingOn.tabId !== currentTab.id)
+        ) {
+          window.close();
+          const confirmed = confirm('Currently processing on another tab. Please wait for it to finish or cancel the operation. Would you prefer switching to that tab?');
+          if (confirmed) {
+            await chrome.tabs.update(processingOn.tabId, {active: true});
+          }
+          return;
+        }
+
+        Popup.currentTab = currentTab;
+        Popup.currentHost = currentHost;
+        Popup.currentHref = currentHref;
+
         // Reset the exclusion notification that has already been run
         await Common.setLocalStorage({exclusion_already_alerted: false});
 
         // Buttons
         Popup.start = await Common.getElement('#start');
         Popup.stop = await Common.getElement('#stop');
-        Popup.buttonGroups = await Common.getElements('.button-group');
-        Popup.clearResult = await Common.getElement('#clear-result');
-        Popup.reload = await Common.getElement('#reload');
-        Popup.restore = await Common.getElement('#restore');
-
-        // Get current tab
-        Popup.currentTab = await Common.getCurrentTab();
-        Popup.currentHost = await Popup.getCurrentHost();
+        Popup.purgeReload = await Common.getElement('#purge-reload');
 
         // Is it processing?
         const isProcessing = Boolean(await Common.getLocalStorage('is_processing'));
         if (isProcessing) {
           await Popup.processingState(true);
-          await Popup.start2Restart();
           const checkProcessing = setInterval(async () => {
             const isProcessing = Boolean(await Common.getLocalStorage('is_processing'));
             if (!isProcessing) {
               clearInterval(checkProcessing);
-              window.close();
+              await Popup.initData();
             }
           }, 3000);
         } else {
-          // Load issues on the page (From Storage)
-          Popup.issues = await Common.getLocalStorage('issues');
-          if (Popup.issues && Popup.issues[Popup.currentHost]) {
-            await Popup.loadList(Popup.issues[Popup.currentHost]);
-            const activeLi = await Common.getElement('#oxyplug-issue-list ul li.active');
-            if (activeLi) {
-              activeLi.scrollIntoView({
-                behavior: 'smooth',
-                block: 'center',
-                inline: 'center'
-              });
-            }
-          }
-
-          // Enable restore button?
-          await Popup.restoreAble();
+          await Popup.initData();
         }
 
-        // Load and show logs
-        await Popup.loadLogs();
+        // Set progress percentage
+        const percent = await Common.getLocalStorage('progress');
+        await Popup.progress(percent);
+
+        // Load and show issues history logs
+        await Popup.loadIssuesHistoryList();
 
         // Max image filesize
         let maxImageFilesize = Number(await Common.getLocalStorage('max_image_filesize'));
-        maxImageFilesize = isNaN(maxImageFilesize) ? 150 : Math.abs(maxImageFilesize);
+        maxImageFilesize = isNaN(maxImageFilesize) ? Popup.maxImageFilesizeDefault : Math.abs(maxImageFilesize);
         const maxImageFilesizeEl = await Common.getElement('#oxyplug-max-image-filesize');
         await Common.setLocalStorage({max_image_filesize: maxImageFilesize});
+        maxImageFilesizeEl.max = Popup.maxImageFilesizeMax;
         maxImageFilesizeEl.value = maxImageFilesize;
         maxImageFilesizeEl.addEventListener('input', (el) => {
           let value = Number(el.target.value);
@@ -73,9 +89,10 @@ class Popup {
 
         // Max image alt
         let maxImageAlt = Number(await Common.getLocalStorage('max_image_alt'));
-        maxImageAlt = isNaN(maxImageAlt) ? 150 : Math.abs(maxImageAlt);
+        maxImageAlt = isNaN(maxImageAlt) ? Popup.maxImageAltDefault : Math.abs(maxImageAlt);
         const maxImageAltEl = await Common.getElement('#oxyplug-max-image-alt');
         await Common.setLocalStorage({max_image_alt: maxImageAlt});
+        maxImageAltEl.max = Popup.maxImageAltMax;
         maxImageAltEl.value = maxImageAlt;
         maxImageAltEl.addEventListener('input', (el) => {
           let value = Number(el.target.value);
@@ -88,11 +105,46 @@ class Popup {
         maxScrolling = isNaN(maxScrolling) ? 0 : Math.abs(maxScrolling);
         const maxScrollingEl = await Common.getElement('#oxyplug-max-scrolling');
         await Common.setLocalStorage({max_scrolling: maxScrolling});
+        maxScrollingEl.max = Popup.maxScrollingMax;
         maxScrollingEl.value = maxScrolling;
         maxScrollingEl.addEventListener('input', (el) => {
           let value = Number(el.target.value);
-          value = isNaN(value) || value < 0 || value > Common.oxyplugScrollLimit ? 0 : value;
+          const invalidValue = isNaN(value) || value < 1 || value > Popup.maxScrollingMax;
+          value = invalidValue ? Popup.maxScrollingDefault : value;
           Common.setLocalStorage({max_scrolling: value});
+        });
+
+        // Check if the max scrolling value is 0 which means unlimited in order to disable/enable number input
+        if (maxScrolling == 0) {
+          const unlimitedMaxScrollingEl = await Common.getElement('#unlimited-max-scrolling');
+          unlimitedMaxScrollingEl.checked = true;
+          maxScrollingEl.disabled = true;
+        } else {
+          const limitedMaxScrollingEl = await Common.getElement('#limited-max-scrolling');
+          limitedMaxScrollingEl.checked = true;
+          maxScrollingEl.disabled = false;
+        }
+
+        // Disable/Enable number input depending on the radio value
+        const maxScrollingRadioEls = await Common.getElements('[name="max_scrolling"]');
+        maxScrollingRadioEls.forEach((maxScrollingRadioEl) => {
+          maxScrollingRadioEl.addEventListener('change', async (el) => {
+            if (el.target.value == 'u') {
+              await Common.setLocalStorage({
+                max_scrolling: 0,
+                max_scrolling_backup: maxScrollingEl.value
+              });
+              maxScrollingEl.value = 0;
+              maxScrollingEl.disabled = true;
+            } else {
+              let maxScrollingBackup = Number(await Common.getLocalStorage('max_scrolling_backup'));
+              const invalidValue = isNaN(maxScrollingBackup) || maxScrollingBackup < 1 || maxScrollingBackup > Popup.maxScrollingMax;
+              maxScrollingBackup = invalidValue ? Popup.maxScrollingDefault : maxScrollingBackup;
+              await Common.setLocalStorage({max_scrolling: maxScrollingBackup});
+              maxScrollingEl.value = maxScrollingBackup;
+              maxScrollingEl.disabled = false;
+            }
+          })
         });
 
         // X Color
@@ -103,14 +155,7 @@ class Popup {
           const isColor = /^#[\dA-F]{6}$/i.test(el.target.value);
           const xColor = isColor ? el.target.value : '#ff0000';
           Common.setLocalStorage({x_color: xColor});
-
-          chrome.tabs.sendMessage(Popup.currentTab.id, {newXColor: xColor}, () => {
-            if (!chrome.runtime.lastError) {
-              console.log('fine');
-            } else {
-              console.log(chrome.runtime.lastError);
-            }
-          });
+          Popup.postMessage({newXColor: xColor});
         });
 
         // X Color All
@@ -121,14 +166,7 @@ class Popup {
           const isColor = /^#[\dA-F]{6}$/i.test(el.target.value);
           const xColorAll = isColor ? el.target.value : '#0000ff';
           Common.setLocalStorage({x_color_all: xColorAll});
-
-          chrome.tabs.sendMessage(Popup.currentTab.id, {newXColorAll: xColorAll}, () => {
-            if (!chrome.runtime.lastError) {
-              console.log('fine');
-            } else {
-              console.log(chrome.runtime.lastError);
-            }
-          });
+          Popup.postMessage({newXColorAll: xColorAll});
         });
 
         // RTL
@@ -204,15 +242,20 @@ class Popup {
         // Start Analyzing
         Popup.start.addEventListener('click', async () => {
           try {
-            await Common.setLocalStorage({logsBoxIsHidden: false});
+            await Common.setLocalStorage({
+              logsBoxIsHidden: false,
+              processingOn: {
+                href: Popup.currentHref,
+                tabId: Popup.currentTab.id
+              }
+            });
             await Popup.clearLogs();
-            await Popup.log('Auditing started...');
+            await Popup.progress(0);
             await Popup.showLogs();
             await Popup.resetList();
             await Common.setLocalStorage({is_processing: true, stopped: false});
             await Popup.processingState(true);
-            await Popup.restoreAble(true);
-            await chrome.tabs.sendMessage(Popup.currentTab.id, {start: true});
+            await Popup.postMessage({start: true});
           } catch (error) {
             console.log(error)
           }
@@ -220,108 +263,73 @@ class Popup {
 
         // Stop Analyzing
         Popup.stop.addEventListener('click', async () => {
-          await Common.setLocalStorage({is_processing: false, stopped: true});
+          await Common.setLocalStorage({is_processing: false, stopped: true, processingOn: null});
           await Popup.processingState(false);
         });
 
-        // Show buttons in button group
-        const closeOverlay = await Common.getElement('#close-overlay');
-        Popup.buttonGroups.forEach(buttonGroup => {
-          buttonGroup.addEventListener('click', async () => {
-            const ul = buttonGroup.querySelector(':scope > ul');
-            if (ul.offsetParent !== null) {
-              closeOverlay.style.display = ul.style.display = 'none';
-              buttonGroup.classList.remove('open');
-            } else {
-              closeOverlay.style.display = ul.style.display = 'block';
-              buttonGroup.classList.add('open');
-            }
-          });
-        });
-
-        // Close buttonGroups by clicking closeOverlay
-        closeOverlay.addEventListener('click', () => {
-          Popup.buttonGroups.forEach(buttonGroup => {
-            const ul = buttonGroup.querySelector(':scope > ul');
-            closeOverlay.style.display = ul.style.display = 'none';
-            buttonGroup.classList.remove('open');
-          });
-        });
-
         // Clear Xs by reloading the page
-        Popup.reload.addEventListener('click', async () => {
-          await chrome.tabs.sendMessage(Popup.currentTab.id, {reload: true});
+        Popup.purgeReload.addEventListener('click', async () => {
+          await Popup.purgeAble(true);
+          await Popup.hideLogs();
+          await Popup.restart2Start();
           await Popup.resetList();
-          await Popup.clearBackup();
-        });
-
-        // Clear Xs and restore the backup DOM
-        Popup.restore.addEventListener('click', async (e) => {
-          if (e.target.disabled) {
-            e.preventDefault();
-            return;
-          }
-
-          await chrome.tabs.sendMessage(Popup.currentTab.id, {restore: true});
-          await Popup.resetList();
-          await Popup.clearBackup();
+          await Popup.postMessage({reload: true});
         });
 
         // Close/Hide logs box
         const hideLogs = await Common.getElement('#progress-logs > button');
         hideLogs.addEventListener('click', async () => {
           await Common.setLocalStorage({logsBoxIsHidden: true});
-          hideLogs.parentElement.style.display = 'none';
+          await Popup.hideLogs();
         });
 
         // Find issues on the page
-        chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-          return new Promise(async (resolve, reject) => {
-            try {
-              if (request.log) {
-                await Popup.log(request.log);
-              } else if (request.progress) {
-                await Popup.progress(request.progress);
-              } else {
-                await Common.setLocalStorage({is_processing: false});
-                await Popup.processingState(false);
-                await Popup.restoreAble();
+        chrome.runtime.onConnect.addListener((port) => {
+          if (port.name === 'oxyplug-tech-seo-audit') {
+            port.onMessage.addListener((request) => {
+              new Promise(async (resolve, reject) => {
+                try {
+                  if (request.log) {
+                    await Popup.addToLogsList(request.log);
+                  } else if (request.progress) {
+                    await Popup.progress(request.progress);
+                  } else {
+                    await Common.setLocalStorage({is_processing: false});
+                    await Popup.processingState(false);
 
-                if (request.issues) {
-                  if (Popup.issues)
-                    Popup.issues[Popup.currentHost] = request.issues;
-                  else
-                    Popup.issues = {[Popup.currentHost]: request.issues};
+                    if (request.issues) {
+                      // Fill issues list
+                      Popup.issues = request.issues;
 
-                  await Popup.loadList(request.issues);
-                  await Popup.start2Restart();
-                  await Popup.stopAble();
-                  await Popup.highlightActiveUrl();
-                  await Popup.highlightActiveFilter();
-                  await Popup.log('Auditing finished.');
-                  await Popup.progress(100);
-                } else if (request.showIssues) {
-                  await Common.showIssues(request.showIssues, request.issueTypes, 'popup');
+                      await Popup.loadLastAudit(request.issues);
+                      await Popup.loadList(request.issues);
+                      await Popup.start2Restart();
+                      await Popup.stopAble();
+                      await Popup.purgeAble(false);
+                      await Popup.highlightActiveUrl();
+                      await Popup.highlightActiveFilter();
+                      const log = 'Auditing finished.';
+                      await Popup.addToLogsList(log);
+                      await Popup.progress(100);
+
+                      // Fill issues history
+                      await Popup.loadIssuesHistoryList(request.allIssues);
+                    } else if (request.showIssues) {
+                      await Common.showIssues(request.showIssues, request.issueTypes, 'popup');
+                    }
+                  }
+
+                  resolve({status: true});
+                } catch (error) {
+                  console.log(error);
+                  reject(error);
                 }
-              }
-
-              resolve({status: true});
-            } catch (error) {
-              console.log(error);
-              reject(error);
-            }
-          })
-            .then(response => {
-              sendResponse(response);
-            })
-            .catch(response => {
-              return response;
+              });
             });
+          }
         });
 
-        // Change `start` to `restart` after the first execution
-        if (Popup.issues && Popup.issues[Popup.currentHost]) {
-          await Popup.start2Restart();
+        if (Popup.issues && Object.keys(Popup.issues).length) {
           await Popup.stopAble();
         }
 
@@ -352,7 +360,7 @@ class Popup {
         const filters = await Common.getElement('.oxyplug-tabs');
         const filterButtons = filters.querySelectorAll(':scope > button');
         filterButtons.forEach((filterButton) => {
-          filterButton.addEventListener('click', (el) => {
+          filterButton.addEventListener('click', async (el) => {
             el = el.currentTarget;
 
             // Change active button color
@@ -363,11 +371,11 @@ class Popup {
             el.classList.add('active');
 
             // Store to highlight when popup pops up
-            Common.setLocalStorage({active_filter: el.id});
+            await Common.setLocalStorage({active_filter: el.id});
 
             // Filter the list
             const filterTarget = 'data-' + el.id;
-            const issueListItems = document.querySelectorAll('#oxyplug-issue-list > ul li');
+            const issueListItems = await Common.getElements('#oxyplug-issue-list > ul li');
             if (filterTarget === 'data-all-issue') {
               issueListItems.forEach((li) => {
                 li.style.display = 'block';
@@ -384,12 +392,56 @@ class Popup {
         // Modal
         await Common.makeModalActions('oxyplug-modal-message');
 
+        // Learn More
+        await Popup.loadLearnMore();
+
         resolve();
       } catch (error) {
         console.log(error);
         reject(error);
       }
     });
+  }
+
+  /**
+   * Init data when popup pops up
+   * @returns {Promise<unknown>}
+   */
+  static async initData() {
+    return new Promise(async (resolve, reject) => {
+      try {
+        // Load issues on the page (From Storage)
+        Popup.issues = await Common.getLocalStorage('issues');
+        if (Popup.issues && Object.keys(Popup.issues).length) {
+          await Popup.loadLastAudit(Popup.issues);
+          const allIssues = await Common.getLocalStorage('all_issues');
+          // Check if the current issues is the last issues and is related to the current page
+          if (
+            Popup.issues.audit.page === Popup.currentHref &&
+            JSON.stringify(Popup.issues) === JSON.stringify(allIssues[allIssues.length - 1])
+          ) {
+            await Popup.purgeAble(false);
+            await Popup.start2Restart();
+            await Popup.loadList(Popup.issues);
+          }
+        }
+
+        resolve();
+      } catch (error) {
+        console.log(error);
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * Post message
+   * @param data
+   * @returns {Promise<void>}
+   */
+  static async postMessage(data) {
+    Popup.port = chrome.tabs.connect(Popup.currentTab.id, {name: 'oxyplug-tech-seo-audit'});
+    Popup.port.postMessage(data);
   }
 
   /**
@@ -499,11 +551,11 @@ class Popup {
    */
   static async resetList() {
     return new Promise(async (resolve) => {
-      if (Popup.issues && Popup.issues[Popup.currentHost]) {
-        Popup.issues[Popup.currentHost]['issues'] = {};
-        if (Popup.issues[Popup.currentHost]['count']) {
-          for (const key of Object.keys(Popup.issues[Popup.currentHost]['count'])) {
-            Popup.issues[Popup.currentHost]['count'][key] = 0;
+      if (Popup.issues && Object.keys(Popup.issues).length) {
+        Popup.issues['issues'] = {};
+        if (Popup.issues['count']) {
+          for (const key of Object.keys(Popup.issues['count'])) {
+            Popup.issues['count'][key] = 0;
             await Popup.updateFilters(key, 0);
           }
           await Popup.updateFilters('all-issue', 0);
@@ -518,20 +570,24 @@ class Popup {
   }
 
   /**
-   * Clear backup
-   * @returns {Promise<unknown>}
+   * Load last audit page and date
+   * @param issues
+   * @returns {Promise<void>}
    */
-  static async clearBackup() {
-    return new Promise(async (resolve) => {
-      const backups = await Common.getLocalStorage('backups');
-      if (backups && backups[Popup.currentHost]) {
-        delete backups[Popup.currentHost];
-        await Common.setLocalStorage({backups});
-        await Popup.restoreAble(true);
-      }
+  static async loadLastAudit(issues) {
+    let lastAuditDate = 'N/A';
+    let lastAuditPage = 'N/A';
+    if (issues.audit) {
+      lastAuditDate = issues.audit.date;
+      lastAuditPage = issues.audit.page;
+    }
 
-      resolve();
-    });
+    // Set last audit page and date
+    const lastAuditEl = await Common.getElement('#last-audit');
+    const pageEl = lastAuditEl.querySelector('div:nth-of-type(1) > span');
+    pageEl.innerText = lastAuditPage;
+    const dateEl = lastAuditEl.querySelector('div:nth-of-type(2) > span');
+    dateEl.innerText = lastAuditDate;
   }
 
   /**
@@ -542,23 +598,10 @@ class Popup {
   static async loadList(issues) {
     return new Promise(async (resolve, reject) => {
       try {
-        let lastAuditDate = 'N/A';
-        let lastAuditPage = 'N/A';
-        if (issues.last_audit) {
-          lastAuditDate = issues.last_audit.date;
-          lastAuditPage = issues.last_audit.page;
-        }
-
+        const auditPage = issues.audit.page;
         const issuesCount = issues.count;
         issues = issues.issues;
         const issuesArray = Object.keys(issues);
-
-        // Set last audit page and date
-        const lastAuditEl = await Common.getElement('#last-audit');
-        const pageEl = lastAuditEl.querySelector('div:nth-of-type(1) > span');
-        pageEl.innerText = lastAuditPage;
-        const dateEl = lastAuditEl.querySelector('div:nth-of-type(2) > span');
-        dateEl.innerText = lastAuditDate;
 
         if (issuesArray.length) {
           // Sort
@@ -604,8 +647,11 @@ class Popup {
               el.target.classList.add('active');
               Common.setLocalStorage({active_url: className});
 
-              chrome.tabs.sendMessage(Popup.currentTab.id, {
-                scrollTo: className,
+              if (auditPage === Popup.currentHref) {
+                Popup.postMessage({scrollTo: className});
+              }
+
+              Popup.postMessage({
                 messages: details.messages,
                 issueTypes: details.issueTypes
               });
@@ -629,8 +675,8 @@ class Popup {
                 e.stopPropagation();
                 e.preventDefault();
                 const parent = e.target.parentNode;
-                if (Popup.issues && Popup.issues[Popup.currentHost]) {
-                  const item = Popup.issues[Popup.currentHost]['issues'][parent.dataset.target];
+                if (Popup.issues && Object.keys(Popup.issues).length) {
+                  const item = Popup.issues['issues'][parent.dataset.target];
                   if (item) {
                     // Exclude src
                     const exclusion = item['url'];
@@ -646,8 +692,8 @@ class Popup {
 
                     // Reset issue list
                     const keys = [];
-                    for (const key in Popup.issues[Popup.currentHost]['issues']) {
-                      if (Popup.issues[Popup.currentHost]['issues'][key].url === exclusion) {
+                    for (const key in Popup.issues['issues']) {
+                      if (Popup.issues['issues'][key].url === exclusion) {
                         keys.push(key);
                         await issueList.querySelector(`li[data-target="${key}"]`).remove();
                       }
@@ -684,11 +730,11 @@ class Popup {
                     for (const key of keys) {
                       for (const issueType of issueTypes) {
                         const issueTypeKey = issueType.replace(/([A-Z])/g, '-$1').toLowerCase();
-                        Popup.issues[Popup.currentHost]['count'][issueTypeKey] -= 1;
+                        Popup.issues['count'][issueTypeKey] -= 1;
                         const el = await Common.getElement(`#${issueTypeKey} .has-issue`);
-                        el.innerText = Popup.issues[Popup.currentHost]['count'][issueTypeKey];
+                        el.innerText = Popup.issues['count'][issueTypeKey];
                       }
-                      delete Popup.issues[Popup.currentHost]['issues'][key];
+                      delete Popup.issues['issues'][key];
 
                       // Decrease all-issue
                       const allIssueEl = await Common.getElement('#all-issue .has-issue');
@@ -800,9 +846,9 @@ class Popup {
           span.classList.remove('has-issue');
         }
 
-        if (['next-gen-formats-issue', 'lazy-load-issue'].includes(id)) {
+        if (['next-gen-formats-issue', 'lazy-load-issue', 'has-space-issue', 'preload-lcp-issue'].includes(id)) {
           span.classList.add('warning');
-        } else if (id === 'lcp-issue') {
+        } else if (['lcp-issue', 'decoding-issue'].includes(id)) {
           span.classList.add('info');
         }
 
@@ -859,6 +905,14 @@ class Popup {
   };
 
   /**
+   * Rename the text of `Restart` button to `Start`
+   * @returns {Promise<void>}
+   */
+  static async restart2Start() {
+    Popup.start.innerText = 'Start';
+  };
+
+  /**
    * Enable/Disable Stop
    * @returns {Promise<void>}
    */
@@ -867,24 +921,56 @@ class Popup {
   };
 
   /**
-   * Enable/Disable Restore?
+   * Enable/Disable Purge
    * @returns {Promise<void>}
    */
-  static async restoreAble(able = false) {
-    const backups = await Common.getLocalStorage('backups');
-    const backup = backups && backups[Popup.currentHost];
-    Popup.clearResult.disabled = Popup.reload.disabled = Popup.restore.disabled = able === true ? able : !backup;
+  static async purgeAble(able = false) {
+    Popup.purgeReload.disabled = able;
+  }
+
+  /**
+   * Hide logs
+   * @returns {Promise<void>}
+   */
+  static async hideLogs() {
+    const logsBox = await Common.getElement('#progress-logs');
+    logsBox.style.display = 'none';
   }
 
   /**
    * Get current tab domain i.e. location.hostname
    * @returns {Promise<string|null>}
    */
-  static async getCurrentHost() {
+  static async getCurrentHost(currentTab) {
     return new Promise((resolve, reject) => {
       try {
-        if (Popup.currentTab && Popup.currentTab.url) {
-          return resolve(new URL(Popup.currentTab.url).hostname);
+        if (currentTab && currentTab.url) {
+          return resolve(new URL(currentTab.url).hostname);
+        }
+
+        resolve(null);
+      } catch (error) {
+        console.log(error);
+        reject(null);
+      }
+    })
+      .then(response => {
+        return response;
+      })
+      .catch(response => {
+        return response;
+      });
+  }
+
+  /**
+   * Get current tab href i.e. location.href
+   * @returns {Promise<string|null>}
+   */
+  static async getCurrentHref(currentTab) {
+    return new Promise((resolve, reject) => {
+      try {
+        if (currentTab && currentTab.url) {
+          return resolve(new URL(currentTab.url).href);
         }
 
         resolve(null);
@@ -919,33 +1005,6 @@ class Popup {
   }
 
   /**
-   * Add logs
-   * @param text
-   * @returns {Promise<void>}
-   */
-  static async log(text) {
-    const addLog = async ({logs, text}) => {
-      // Add to localStorage
-      await Common.setLocalStorage({logs});
-
-      // Add to logs list
-      await Popup.addToLogsList(text);
-    }
-
-    let logs = await Common.getLocalStorage('logs');
-    if (!logs || Object.keys(logs).length === 0) {
-      logs = {[Popup.currentHost]: [text]};
-      await addLog({logs, text});
-    } else if (!logs[Popup.currentHost]) {
-      logs[Popup.currentHost] = [text];
-      await addLog({logs, text});
-    } else if (!logs[Popup.currentHost].includes(text)) {
-      logs[Popup.currentHost].push(text);
-      await addLog({logs, text});
-    }
-  }
-
-  /**
    * Show logs list
    * @returns {Promise<void>}
    */
@@ -958,20 +1017,6 @@ class Popup {
   }
 
   /**
-   * Load logs
-   * @returns {Promise<void>}
-   */
-  static async loadLogs() {
-    const logs = await Common.getLocalStorage('logs');
-    if (logs && logs[Popup.currentHost]) {
-      for (const logText of logs[Popup.currentHost]) {
-        await Popup.addToLogsList(logText);
-      }
-      await Popup.showLogs();
-    }
-  }
-
-  /**
    * Add log to the list
    * @param text
    * @returns {Promise<void>}
@@ -980,7 +1025,19 @@ class Popup {
     const newLi = document.createElement('li');
     newLi.innerText = text;
     const progressLogsListEl = await Common.getElement('#progress-logs > ul');
-    progressLogsListEl.append(newLi);
+    const progressLogsListItem = progressLogsListEl.querySelectorAll('li');
+    let found = false;
+    for (let e = 0; e < progressLogsListItem.length; e++) {
+      const element = progressLogsListItem[e];
+      if (element.textContent.includes(text)) {
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      progressLogsListEl.append(newLi);
+    }
   }
 
   /**
@@ -992,6 +1049,156 @@ class Popup {
     const auditProgress = await Common.getElement('#audit-progress');
     auditProgress.querySelector('div').style.width = `${percent}%`;
     auditProgress.querySelector('span').innerText = `${percent}%`;
+  }
+
+  /**
+   * Load learn more
+   * @returns {Promise<void>}
+   */
+  static async loadLearnMore() {
+    await Common.setLearnMores(Popup.currentHost);
+    const learnMoreList = await Common.getElement('#learn ul');
+    const utmLink = Common.learnMores['utm-link'];
+    for (const [_, messageObject] of Object.entries(Common.learnMores['issues'])) {
+      for (const [key, message] of Object.entries(messageObject)) {
+
+        // li
+        const li = document.createElement('li');
+        li.innerText = message + ' ';
+
+        // a
+        const a = document.createElement('a');
+        a.href = `${utmLink}${key}#${key}`;
+        a.target = '_blank';
+        a.innerText = 'Learn More';
+
+        // append
+        li.append(a);
+        learnMoreList.append(li);
+      }
+    }
+  }
+
+  /**
+   * Load history list of the issues
+   * @param allIssues
+   * @returns {Promise<unknown>}
+   */
+  static async loadIssuesHistoryList(allIssues = null) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        if (allIssues === null) {
+          allIssues = await Common.getLocalStorage('all_issues');
+        }
+
+        let requestAnimationFrameId = null;
+
+        const startMarquee = (span) => {
+          const currentPosition = parseFloat(span.style.left);
+          if (currentPosition < -(span.clientWidth - span.dataset.left)) {
+            span.style.left = `${span.dataset.left}px`;
+          } else {
+            span.style.left = currentPosition - 1 + 'px';
+          }
+          requestAnimationFrameId = requestAnimationFrame(() => startMarquee(span));
+        }
+
+        const stopMarquee = (span) => {
+          cancelAnimationFrame(requestAnimationFrameId);
+          span.style.left = `${span.dataset.left}px`;
+        }
+
+        const refreshList = async () => {
+          const issuesHistoryList = await Common.getElement('#history ul');
+          issuesHistoryList.innerHTML = '';
+          if (allIssues && allIssues.length) {
+            allIssues.forEach((issues, key) => {
+              // li
+              const li = document.createElement('li');
+
+              // button
+              const button = document.createElement('button');
+              button.classList.add('oxyplug-icon-bin');
+              button.onclick = async (e) => {
+                e.stopPropagation();
+                const confirmed = confirm('Are you sure?');
+                if (confirmed) {
+                  allIssues.splice(key, 1);
+                  await Common.setLocalStorage({all_issues: allIssues});
+                  await refreshList();
+                }
+              }
+
+              // div
+              const div = document.createElement('div');
+              div.append(button, `${issues.audit.date} - `);
+              li.append(div);
+
+              // span
+              const span = document.createElement('span');
+              span.innerText = issues.audit.page;
+
+              // li listeners
+              li.onmouseenter = () => {
+                if (li.scrollWidth > li.clientWidth) {
+                  span.style.left = `${span.dataset.left}px`;
+                  requestAnimationFrameId = requestAnimationFrame(() => startMarquee(span));
+                }
+              };
+              li.onmouseleave = () => {
+                if (li.scrollWidth > li.clientWidth) {
+                  stopMarquee(span);
+                }
+              };
+              li.onclick = async () => {
+                await Popup.loadLastAudit(issues);
+                await Popup.loadList(issues);
+                const homeButton = await Common.getElement('.oxyplug-section button.oxyplug-icon-home');
+                homeButton.click();
+                stopMarquee(span);
+              };
+
+              // append
+              li.append(span);
+              issuesHistoryList.append(li);
+            });
+
+            // Keep div `width` to reset span `left`
+            const historyPage = await Common.getElement('#history');
+            setTimeout(() => {
+
+              const alreadyDisplayed = historyPage.style.display === 'block';
+              if (!alreadyDisplayed) {
+                historyPage.style.display = 'block';
+              }
+
+              issuesHistoryList.querySelectorAll('li').forEach(li => {
+                const div = li.querySelector('div');
+                const span = li.querySelector(':scope > span');
+                const divWidth = div.clientWidth + 3;
+                span.dataset.left = divWidth + '';
+                span.style.left = `${divWidth}px`;
+              });
+
+              if (!alreadyDisplayed) {
+                historyPage.style.display = 'none';
+              }
+            }, 100);
+          } else {
+            const p = document.createElement('p');
+            p.innerText = 'No audits yet.';
+            issuesHistoryList.insertAdjacentElement('beforebegin', p);
+          }
+        }
+
+        await refreshList();
+
+        resolve();
+      } catch (error) {
+        console.log(error);
+        reject(error);
+      }
+    });
   }
 }
 

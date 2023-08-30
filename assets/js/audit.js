@@ -7,11 +7,12 @@ class Audit {
   /**
    * Audit elements with all validations
    * @param imgs
-   * @returns {Promise<{count: {"height-issue": any, "next-gen-formats-issue": any, "lcp-issue": any, "alt-issue": any, "nx-issue": any, "width-issue": any, "src-issue": any, "rendered-size-issue": any, "aspect-ratio-issue": any, "load-fails-issue": any, "filesize-issue": any, "lazy-load-issue": any}, issues: (*|{})}>}
+   * @returns {Promise<unknown>}
    */
   static async all(imgs) {
     return new Promise(async (resolve, reject) => {
-      await chrome.runtime.sendMessage({log: 'Auditing images...'});
+      await Common.log('Auditing images...');
+
       try {
         Audit.issues = {};
         await window.scroll({top: 0});
@@ -25,8 +26,9 @@ class Audit {
           heightIssuesCount, renderedSizeIssuesCount,
           aspectRatioIssuesCount, filesizeIssuesCount,
           loadFailsIssuesCount, nxIssuesCount, nextGenFormatsIssuesCount,
-          lazyLoadIssuesCount, LCPsIssuesCount
-        ] = Array(12).fill(0);
+          lazyLoadIssuesCount, LCPsIssuesCount, preloadLCPsIssuesCount,
+          decodingIssuesCount, hasSpaceIssuesCount
+        ] = Array(15).fill(0);
 
         let index = 1;
 
@@ -47,7 +49,7 @@ class Audit {
           // If the <img> is inside <picture> and has various densities/DPRs/dimensions,
           // it needs to replace the src with currentSrc in order not to load the other images that are for the other DPRs.
           // For example, when the loaded image is 300x300 with <source> but the <img> has the src of image 100x100.
-          if (img.currentSrc != '') {
+          if (img.currentSrc != '' && img.src != img.currentSrc) {
             img.src = img.currentSrc;
           }
 
@@ -64,11 +66,13 @@ class Audit {
             if (await Audit.nx(img) === false) nxIssuesCount++;
             if (await Audit.nextGenFormats(img) === false) nextGenFormatsIssuesCount++;
             if (await Audit.lazyLoad(img) === false) lazyLoadIssuesCount++;
+            if (await Audit.preloadLCP(img) === false) preloadLCPsIssuesCount++;
             if (await Audit.LCP(img) === false) LCPsIssuesCount++;
+            if (await Audit.decoding(img) === false) decodingIssuesCount++;
+            if (await Audit.hasSpace(img) === false) hasSpaceIssuesCount++;
           }
         }
-
-        await chrome.runtime.sendMessage({log: 'All images audited...'});
+        await Common.log('All images audited...');
 
         /**
          * By changing 1st image wrap, it would change the width and height of 2nd image wrap,
@@ -83,7 +87,7 @@ class Audit {
         await Audit.hideOverlays();
 
         resolve({
-          last_audit: {date: await Audit.getFormattedDate(), page: location.href},
+          audit: {date: await Audit.getFormattedDate(), page: location.href},
           issues: Audit.issues,
           count: {
             'src-issue': srcIssuesCount,
@@ -97,7 +101,10 @@ class Audit {
             'nx-issue': nxIssuesCount,
             'next-gen-formats-issue': nextGenFormatsIssuesCount,
             'lazy-load-issue': lazyLoadIssuesCount,
+            'has-space-issue': hasSpaceIssuesCount,
+            'preload-lcp-issue': preloadLCPsIssuesCount,
             'lcp-issue': LCPsIssuesCount,
+            'decoding-issue': decodingIssuesCount,
           }
         });
       } catch (error) {
@@ -391,6 +398,7 @@ class Audit {
           const src = img.currentSrc != '' ? img.currentSrc : img.src;
           const maxImageFilesize = await Common.getLocalStorage('max_image_filesize'); // KB
           const imageFilesizes = await Common.getLocalStorage('image_filesizes');
+
           if (imageFilesizes && imageFilesizes[src] && imageFilesizes[src] > maxImageFilesize) {
             return resolve(await Audit.addToIssues('The image filesize is bigger than ' + maxImageFilesize + ' KB.', issueType, img));
           }
@@ -552,14 +560,84 @@ class Audit {
   static async lazyLoad(img) {
     return new Promise(async (resolve, reject) => {
       try {
-        if (!Audit.LCPs.includes(img) && await Audit.isOffscreen(img)) {
-          const issueType = 'lazyLoadIssue';
-          if (!img.hasAttribute('loading') || img.dataset.hasLoading === 'no') {
-            return resolve(await Audit.addToIssues('The loading attribute is not set.', issueType, img));
-          }
+        const issueType = 'lazyLoadIssue';
+        const isOffscreen = await Audit.isOffscreen(img);
 
-          if (img.getAttribute('loading').trim() !== 'lazy' && img.dataset.hasLoading !== 'lazy') {
+        // LCP image must be loaded eagerly. `loading="eager"`
+        if (Audit.LCPs.includes(img)) {
+          if (img.getAttribute('loading') === 'lazy' || img.dataset.hasLoading === 'lazy') {
+            return resolve(await Audit.addToIssues('The LCP image must be loaded eagerly. `loading="eager"`', issueType, img));
+          }
+        }
+        // Below-the-fold images must be loaded lazily. `loading="lazy"`
+        else if (isOffscreen) {
+          let isLazy = true;
+          if (img.dataset.hasLoading && img.dataset.hasLoading !== 'lazy')
+            isLazy = false;
+          else if (img.hasAttribute('loading') && img.getAttribute('loading') !== 'lazy')
+            isLazy = false;
+
+          if (isLazy === false) {
             return resolve(await Audit.addToIssues('The loading attribute doesn\'t equal `lazy`.', issueType, img));
+          }
+        }
+
+        resolve(true);
+      } catch (error) {
+        console.log(error);
+        reject(false);
+      }
+    })
+      .then(response => {
+        return response;
+      })
+      .catch(response => {
+        return response;
+      });
+  }
+
+  /**
+   * Image path must not have any space
+   * @param img
+   * @returns {Promise<unknown>}
+   */
+  static async hasSpace(img) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        if (decodeURIComponent(img.src).includes(' ')) {
+          const issueType = 'hasSpaceIssue';
+          return resolve(await Audit.addToIssues('Image path must not have any space.', issueType, img));
+        }
+
+        resolve(true);
+      } catch (error) {
+        console.log(error);
+        reject(false);
+      }
+    })
+      .then(response => {
+        return response;
+      })
+      .catch(response => {
+        return response;
+      });
+  }
+
+  /**
+   * Check if the LCP image is preloaded
+   * @param img
+   * @returns {Promise<boolean>}
+   */
+  static async preloadLCP(img) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        if (Audit.LCPs.length) {
+          if (Audit.LCPs.includes(img)) {
+            const hasPreload = await Common.getElement(`link[rel="preload"][href="${img.src}"]`);
+            if (!hasPreload) {
+              const issueType = 'preloadLcpIssue';
+              return resolve(await Audit.addToIssues('The LCP (Image) is not preloaded with link tag.', issueType, img));
+            }
           }
         }
 
@@ -581,7 +659,6 @@ class Audit {
    * Display the LCP image above the fold
    * @param img
    * @returns {Promise<boolean>}
-   * @constructor
    */
   static async LCP(img) {
     return new Promise(async (resolve, reject) => {
@@ -589,7 +666,38 @@ class Audit {
         if (Audit.LCPs.length) {
           if (Audit.LCPs.includes(img)) {
             const issueType = 'lcpIssue';
-            return resolve(await Audit.addToIssues('LCP', issueType, img));
+            return resolve(await Audit.addToIssues('LCP (Image)', issueType, img));
+          }
+        }
+
+        resolve(true);
+      } catch (error) {
+        console.log(error);
+        reject(false);
+      }
+    })
+      .then(response => {
+        return response;
+      })
+      .catch(response => {
+        return response;
+      });
+  }
+
+  /**
+   * Check the LCP image to have decoding="sync"
+   * @param img
+   * @returns {Promise<boolean>}
+   */
+  static async decoding(img) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        if (Audit.LCPs.length) {
+          if (Audit.LCPs.includes(img)) {
+            const issueType = 'decodingIssue';
+            if (img.getAttribute('decoding') !== 'sync') {
+              return resolve(await Audit.addToIssues('Having `decoding="sync"` for LCP image is recommended.', issueType, img));
+            }
           }
         }
 
@@ -822,12 +930,14 @@ class Audit {
    * @returns {Promise<void>}
    */
   static async fillLCPs() {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       try {
         let lcpElement = null;
         let lastWidth = 0;
         let lastHeight = 0;
-        const elements = document.getElementsByTagName('img');
+        let possibleLCPs = [];
+
+        const elements = await Common.getElements('img');
         for (let i = 0; i < elements.length; i++) {
           const element = elements[i];
           if (element.getBoundingClientRect().top >= window.innerHeight) {
@@ -838,6 +948,15 @@ class Audit {
             lastWidth = element.offsetWidth;
             lastHeight = element.offsetHeight;
             lcpElement = element;
+          } else if (lcpElement && element.currentSrc === lcpElement.currentSrc) {
+            possibleLCPs.push(element);
+          }
+        }
+
+        if (possibleLCPs.length) {
+          const possibleLCP = await Audit.getVisibleLCP(possibleLCPs);
+          if (possibleLCP) {
+            lcpElement = possibleLCP;
           }
         }
 
@@ -851,6 +970,52 @@ class Audit {
         reject(error);
       }
     });
+  }
+
+  /**
+   * Check visibility of the LCP elements
+   * @param possibleLCPs
+   * @returns {Promise<void>}
+   */
+  static async getVisibleLCP(possibleLCPs) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            const target = entry.target;
+
+            // Check if it is visible
+            if (entry.isIntersecting) {
+              resolve(target);
+            }
+            observer.unobserve(target);
+          });
+        });
+
+        for (const possibleLCP of possibleLCPs) {
+          possibleLCP.scrollIntoView({
+            block: 'center',
+            inline: 'center'
+          });
+
+          await Common.wait(500);
+
+          observer.observe(possibleLCP);
+        }
+
+        await Common.wait(1000);
+        resolve(null);
+      } catch (error) {
+        console.log(error);
+        reject(null);
+      }
+    })
+      .then(response => {
+        return response;
+      })
+      .catch(response => {
+        return response;
+      });
   }
 
   /**
@@ -874,7 +1039,7 @@ class Audit {
    */
   static async setImageSize() {
     return new Promise(async (resolve, reject) => {
-      await chrome.runtime.sendMessage({log: 'Positioning and styling...'});
+      await Common.log('Positioning and styling...');
       try {
         const imgWraps = await Common.getElements('.oxyplug-tech-seo:not(.positioned)');
         for (const imgWrap of imgWraps) {
@@ -884,7 +1049,7 @@ class Audit {
           imgWrap.style.cssText = `position:relative;margin:auto;width:${imgWidth}px;height:${imgHeight}px`;
         }
 
-        await chrome.runtime.sendMessage({log: 'Positioned and styled...'});
+        await Common.log('Positioned and styled...');
         resolve();
       } catch (error) {
         console.log(error);
@@ -945,7 +1110,7 @@ class Audit {
             }
           }
           await window.scroll({top: 0});
-          await chrome.runtime.sendMessage({log: 'Overlays on the images got hidden...'});
+          await Common.log('Overlays on the images got hidden...');
 
           resolve();
         } catch (error) {
@@ -983,11 +1148,11 @@ class Audit {
 
   /**
    * Get empty issues
-   * @returns {Promise<{count: {"next-gen-formats-issue": number, "nx-issue": number, "src-issue": number, "load-fails-issue": number, "filesize-issue": number, "lazy-load-issue": number, "height-issue": number, "lcp-issue": number, "alt-issue": number, "width-issue": number, "all-issue": number, "rendered-size-issue": number, "aspect-ratio-issue": number}, issues: {}, last_audit: {date: string, page: string}}>}
+   * @returns {Promise<{count: {"next-gen-formats-issue": number, "has-space-issue": number, "nx-issue": number, "src-issue": number, "decoding-issue": number, "load-fails-issue": number, "filesize-issue": number, "lazy-load-issue": number, "height-issue": number, "lcp-issue": number, "alt-issue": number, "width-issue": number, "all-issue": number, "rendered-size-issue": number, "aspect-ratio-issue": number, "preload-lcp-issue": number}, issues: {}, audit: {date: string, page: string}}>}
    */
   static async getEmptyIssues() {
     return {
-      last_audit: {date: await Audit.getFormattedDate(), page: location.href},
+      audit: {date: await Audit.getFormattedDate(), page: location.href},
       issues: {},
       count: {
         'src-issue': 0,
@@ -1001,7 +1166,10 @@ class Audit {
         'nx-issue': 0,
         'next-gen-formats-issue': 0,
         'lazy-load-issue': 0,
+        'has-space-issue': 0,
+        'preload-lcp-issue': 0,
         'lcp-issue': 0,
+        'decoding-issue': 0,
         'all-issue': 0,
       }
     }

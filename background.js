@@ -109,7 +109,6 @@ class Background {
         Background.currentTab = await Background.getCurrentTab();
 
         // Remove previous storage
-        await Background.removeLocalStorage('image_filesizes');
         await Background.removeLocalStorage('load_fails');
 
         // Audit
