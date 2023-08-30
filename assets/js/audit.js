@@ -12,7 +12,6 @@ class Audit {
   static async all(imgs) {
     return new Promise(async (resolve, reject) => {
       await Common.log('Auditing images...');
-
       try {
         Audit.issues = {};
         await window.scroll({top: 0});
@@ -73,6 +72,8 @@ class Audit {
           }
         }
         await Common.log('All images audited...');
+
+        await chrome.runtime.sendMessage({log: 'All images audited...'});
 
         /**
          * By changing 1st image wrap, it would change the width and height of 2nd image wrap,

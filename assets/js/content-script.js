@@ -214,7 +214,6 @@ class ContentScript {
             const progress = 40;
             await ContentScript.postMessage({progress: progress});
             await Common.setLocalStorage({progress: progress});
-
             await scrollBackwardVertically();
           }
         };
