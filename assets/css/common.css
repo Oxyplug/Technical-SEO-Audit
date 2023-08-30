@@ -78,6 +78,41 @@
 
 /* Montserrat Font Ends Here */
 
+/* Font Icon Starts Here */
+@font-face {
+  font-family: 'oxyplug-icon';
+  src: url('chrome-extension://__MSG_@@extension_id__/assets/fonts/oxyplug-icons.eot?vvt49g');
+  src: url('chrome-extension://__MSG_@@extension_id__/assets/fonts/oxyplug-icons.eot?vvt49g#iefix') format('embedded-opentype'),
+  url('chrome-extension://__MSG_@@extension_id__/assets/fonts/oxyplug-icons.ttf?vvt49g') format('truetype'),
+  url('chrome-extension://__MSG_@@extension_id__/assets/fonts/oxyplug-icons.woff?vvt49g') format('woff'),
+  url('chrome-extension://__MSG_@@extension_id__/assets/fonts/oxyplug-icons.svg?vvt49g#icomoon') format('svg');
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+
+[class^="oxyplug-icon-"],
+[class*=" oxyplug-icon-"] {
+  /* use !important to prevent issues with browser extensions that change fonts */
+  font-family: 'oxyplug-icon' !important;
+  speak: never;
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  vertical-align: middle;
+
+  /* Better Font Rendering =========== */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.oxyplug-icon-info:before {
+  content: "\ea0c";
+}
+/* Font Icon Ends Here */
+
 .oxyplug-tech-seo-h1 {
   margin: 0 0 10px 0;
   font-weight: 500;
@@ -156,6 +191,12 @@
   background: var(--oxyplug-yellow);
 }
 
+.oxyplug-modal-content ul li a {
+  text-decoration: none;
+  color: var(--oxyplug-aqua);
+  margin-left: 5px;
+}
+
 .oxyplug-modal-close {
   color: var(--oxyplug-gray);
   float: right;
@@ -183,7 +224,7 @@
   color: var(--oxyplug-white-color);
   border-radius: 3px;
   overflow-y: auto;
-  max-height: 250px;
+  max-height: 255px;
   transition: height 0.3s;
 }
 

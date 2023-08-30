@@ -12,34 +12,6 @@
 /* Reset Ends Here */
 
 /* Font Icon Starts Here */
-@font-face {
-  font-family: 'oxyplug-icon';
-  src: url('../fonts/oxyplug-icons.eot?vvt49g');
-  src: url('../fonts/oxyplug-icons.eot?vvt49g#iefix') format('embedded-opentype'),
-  url('../fonts/oxyplug-icons.ttf?vvt49g') format('truetype'),
-  url('../fonts/oxyplug-icons.woff?vvt49g') format('woff'),
-  url('../fonts/oxyplug-icons.svg?vvt49g#icomoon') format('svg');
-  font-weight: normal;
-  font-style: normal;
-  font-display: block;
-}
-
-[class^="oxyplug-icon-"],
-[class*=" oxyplug-icon-"] {
-  /* use !important to prevent issues with browser extensions that change fonts */
-  font-family: 'oxyplug-icon' !important;
-  speak: never;
-  font-style: normal;
-  font-weight: normal;
-  font-variant: normal;
-  text-transform: none;
-  line-height: 1;
-
-  /* Better Font Rendering =========== */
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
 .oxyplug-icon-home:before {
   content: "\e900";
 }
@@ -48,16 +20,20 @@
   content: "\e994";
 }
 
-.oxyplug-icon-info:before {
-  content: "\ea0c";
+.oxyplug-icon-exclude:before {
+  content: "\e901";
+}
+
+.oxyplug-icon-history:before {
+  content: "\e903";
 }
 
 .oxyplug-icon-new-tab:before {
   content: "\ea7e";
 }
 
-.oxyplug-icon-exclude:before {
-  content: "\e901";
+.oxyplug-icon-bin:before {
+  content: "\e9ac";
 }
 
 /* Font Icon Ends Here */
@@ -215,11 +191,20 @@ nav.oxyplug-section > .button:hover {
 }
 
 .button.oxyplug-icon-info {
+  border-color: var(--oxyplug-aqua);
+  color: var(--oxyplug-aqua);
+}
+
+.button.button-active.oxyplug-icon-info {
+  background-color: var(--oxyplug-aqua);
+}
+
+.button.oxyplug-icon-history {
   border-color: var(--oxyplug-yellow);
   color: var(--oxyplug-yellow);
 }
 
-.button.button-active.oxyplug-icon-info {
+.button.button-active.oxyplug-icon-history {
   background-color: var(--oxyplug-yellow);
 }
 
@@ -239,7 +224,7 @@ nav > a {
   font-size: 9px;
   font-style: italic;
   text-decoration: none;
-  color: #999;
+  color: var(--oxyplug-dark-gray);
 }
 
 .oxyplug-section {
@@ -253,8 +238,28 @@ nav > a {
   display: none;
 }
 
+.next-to-each-other > div {
+  display: inline-block;
+  margin-right: 15px;
+}
+
+.sub-options {
+  margin: 10px 0;
+}
+
+.sub-options > label {
+  font-weight: 500;
+  font-size: 1em;
+  margin-right: 30px;
+}
+
+.sub-options > input {
+  margin: 0;
+  vertical-align: bottom;
+}
+
 .h-separator {
-  margin: 20px 0;
+  margin: 15px 0;
   background-color: var(--oxyplug-alpha-green-5);
   width: 100%;
   height: 1px;
@@ -422,11 +427,6 @@ nav > a {
   font-weight: 500;
 }
 
-#restore > span {
-  display: block;
-  font-size: 0.7em;
-}
-
 .info-box {
   background: var(--oxyplug-lightest-gray);
   border: 1px solid var(--oxyplug-lighter-gray);
@@ -447,7 +447,8 @@ nav > a {
   margin-right: 3px;
 }
 
-#oxyplug-issue-list ul li button {
+#oxyplug-issue-list ul li button,
+#history > ul li button {
   background: none;
   border: none;
   outline: none;
@@ -539,7 +540,7 @@ nav > a {
 /* Exclusions Page Starts Here */
 #exclusions h2 {
   margin: 0 0 10px 0;
-  color: #555;
+  color: var(--oxyplug-dark-black);
   border-bottom: 1px solid #aaa;
 }
 
@@ -556,7 +557,7 @@ nav > a {
 /* Info/LearnMore Page Starts Here */
 #learn h2 {
   margin: 0 10px;
-  color: #555;
+  color: var(--oxyplug-dark-black);
   border-bottom: 1px solid #aaa;
 }
 
@@ -570,13 +571,49 @@ nav > a {
 }
 
 #learn a {
-  color: #1a0dab;
+  color: var(--oxyplug-blue);
   font-weight: 500;
   text-decoration: none;
 }
 
-#learn a:visited {
-  color: #8d63b3;
+/* Info/LearnMore Page Ends Here */
+
+/* History Page Starts Here */
+#history h2 {
+  margin: 0 0 10px 0;
+  color: var(--oxyplug-dark-black);
+  border-bottom: 1px solid #aaa;
 }
 
-/* Info/LearnMore Page Ends Here */
+#history > ul li {
+  cursor: pointer;
+  position: relative;
+  padding: 3px 10px 6px 0;
+}
+
+#history > ul li button {
+  margin-right: 3px;
+}
+
+#history > ul li > div {
+  display: inline-block;
+  z-index: 10;
+  width: fit-content;
+  position: absolute;
+  padding-left: 5px;
+}
+
+#history > ul li:nth-of-type(odd) > div {
+  background-color: var(--oxyplug-darker-black);
+}
+
+#history > ul li:nth-of-type(even) > div {
+  background-color: var(--oxyplug-dark-black);
+}
+
+#history > ul li > span {
+  display: inline-block;
+  position: absolute;
+}
+
+/* History Page Ends Here */

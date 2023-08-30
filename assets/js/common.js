@@ -1,5 +1,6 @@
 class Common {
-  static oxyplugScrollLimit = 50000;
+  static hostLearnMores = [];
+  static learnMores;
 
   /**
    * Make modal actions
@@ -78,7 +79,7 @@ class Common {
         <div id="${messageId}" class="oxyplug-modal">
           <div class="oxyplug-modal-content">
             <span class="oxyplug-modal-close">&times;</span>
-            <h1 class="oxyplug-tech-seo-h1">List of issues</h1>
+            <h1 class="oxyplug-tech-seo-h1">Audit Results</h1>
             <ul></ul>
           </div>
         </div>`;
@@ -90,28 +91,36 @@ class Common {
     const messageModal = shadowWrap.shadowRoot.getElementById(messageId);
     const ul = messageModal.querySelector('.oxyplug-modal-content ul');
     ul.innerHTML = '';
-    messages.forEach((message, index) => {
+    for (const message of messages) {
+      const index = messages.indexOf(message);
       const li = document.createElement('li');
       const span = document.createElement('span');
-
       if (issueTypes === 'info') {
         span.classList.add(issueTypes);
         span.innerText = 'i';
       } else {
         span.classList.add('issue-number');
         if (Array.isArray(issueTypes) && issueTypes.length) {
-          if (['nextGenFormatsIssue', 'lazyLoadIssue'].includes(issueTypes[index])) {
+          const id = issueTypes[index];
+          if (['nextGenFormatsIssue', 'lazyLoadIssue', 'hasSpaceIssue', 'preloadLcpIssue'].includes(id)) {
             span.classList.add('warning');
-          } else if (issueTypes[index] === 'lcpIssue') {
+          } else if (['lcpIssue', 'decodingIssue'].includes(id)) {
             span.classList.add('info');
           }
+
+          const host = typeof (Popup) !== 'undefined' ? Popup.currentHost : location.host;
+          await Common.setLearnMores(host);
+          let utmLink = Common.learnMores['utm-link'];
+          const [[firstKey]] = Object.entries(Common.learnMores['issues'][id]);
+          const href = `${utmLink}${firstKey}#${firstKey}`;
+          const learnMore = `<a class="oxyplug-icon-info" href="${href}" target="_blank"></a>`;
+          li.append(span, message);
+          li.insertAdjacentHTML('beforeend', learnMore);
+          ul.append(li);
         }
         span.innerText = index + 1;
       }
-
-      li.append(span, message);
-      ul.append(li);
-    });
+    }
 
     await Common.showModal(messageModal);
   }
@@ -214,6 +223,127 @@ class Common {
       })
       .catch(response => {
         return response;
+      });
+  }
+
+  /**
+   * Add logs
+   * @param text
+   * @param currentHost
+   * @returns {Promise<void>}
+   */
+  static async log(text, currentHost = location.host) {
+    return new Promise(async (resolve, reject) => {
+      try {
+
+        const addLog = (logs, text) => {
+          // Add to localStorage
+          Common.setLocalStorage({logs});
+
+          // Send the log to popup
+          Common.port = chrome.runtime.connect({name: 'oxyplug-tech-seo-audit'});
+          Common.port.postMessage({log: text});
+        }
+
+        let logs = await Common.getLocalStorage('logs');
+        if (!logs || Object.keys(logs).length === 0) {
+          logs = {[currentHost]: [text]};
+          await addLog(logs, text);
+        } else if (!logs[currentHost]) {
+          logs[currentHost] = [text];
+          await addLog(logs, text);
+        } else if (!logs[currentHost].includes(text)) {
+          logs[currentHost].push(text);
+          await addLog(logs, text);
+        }
+
+        resolve();
+      } catch (error) {
+        console.log(error);
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * Make a delay in milliseconds
+   * @param milliseconds
+   * @returns {Promise<unknown>}
+   */
+  static async wait(milliseconds) {
+    return new Promise(resolve => {
+      setTimeout(() => {
+        resolve()
+      }, milliseconds);
+    });
+  }
+
+  /**
+   * Get learn mores
+   * @returns {Promise<unknown>}
+   */
+  static async setLearnMores(host) {
+    return new Promise(resolve => {
+      if (!Common.hostLearnMores || !Common.hostLearnMores[host]) {
+        const utmLink = `https://www.oxyplug.com/docs/oxy-seo-audit/audit-definitions/?utm_source=${host}&utm_medium=chrome-extension&utm_campaign=`;
+        Common.learnMores = Common.hostLearnMores[host] = {
+          'utm-link': utmLink,
+          'issues': {
+            'srcIssue': {
+              'src': "Without src attribute.",
+            },
+            'altIssue': {
+              'alt': "Without alt attribute.",
+              'alt-length': "The alt attribute length is more than X characters.",
+            },
+            'widthIssue': {
+              'width': "Without width attribute.",
+            },
+            'heightIssue': {
+              'height': "Without height attribute.",
+            },
+            'renderedSizeIssue': {
+              'rendered-size': "The rendered image dimensions don't equal the original image dimensions.",
+            },
+            'aspectRatioIssue': {
+              'aspect-ratio': "The aspect-ratio of the rendered image doesn't equal the aspect-ratio of the original image.",
+            },
+            'filesizeIssue': {
+              'filesize': "The image filesize is bigger than X KB.",
+            },
+            'loadFailsIssue': {
+              'load-fails': "The image fails to load with http status code of X.",
+            },
+            'nxIssue': {
+              'nx': "No 2x image found for DPR 2 devices.",
+            },
+            'nextGenFormatsIssue': {
+              'next-gen-formats': "The next-gen (WebP, AVIF) is not provided.",
+            },
+            'lazyLoadIssue': {
+              'lazy-load': "The loading attribute doesn't equal `lazy`.",
+              'eager-load': "The loading attribute of LCP image doesn't equal `eager`.",
+            },
+            'hasSpaceIssue': {
+              'has-space': "Image path must not have any space.",
+            },
+            'preloadLcpIssue': {
+              'lcp-preload': "The LCP (Image) is not preloaded with link tag.",
+            },
+            'lcpIssue': {
+              'lcp': "The LCP shows the largest image above the fold.",
+            },
+            'decodingIssue': {
+              'decoding': "Having `decoding=\"sync\"` for LCP image is recommended.",
+            },
+          }
+        };
+      }
+      resolve();
+    })
+      .catch(error => {
+        console.log(error);
+        return error;
       });
   }
 }
