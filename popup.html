@@ -6,7 +6,7 @@
   <title>Oxyplug - Technical SEO Audit</title>
   <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
 </head>
-<body>
+<body class="d-none">
 
 <div id="wrapper">
   <h1 class="oxyplug-tech-seo-h1">Oxyplug - Technical SEO Audit</h1>
@@ -15,8 +15,8 @@
     <button class="button button-active oxyplug-icon-home" data-target="home"></button>
     <button class="button oxyplug-icon-cog" data-target="settings"></button>
     <button class="button oxyplug-icon-exclude" data-target="exclusions"></button>
-    <button class="button oxyplug-icon-info" data-target="learn"></button>
     <button class="button oxyplug-icon-history" data-target="history"></button>
+    <button class="button oxyplug-icon-info" data-target="learn"></button>
     <a href="https://oxyplug.com" target="_blank">OxyPlug.com</a>
   </nav>
 
@@ -29,16 +29,6 @@
         <button id="purge-reload" class="button button-info" disabled>Purge & Reload</button>
       </div>
       <div id="oxyplug-issue-list" class="oxyplug-list">
-        <div id="last-audit" class="info-box">
-          <div>
-            <strong>Last Audit Page:</strong>
-            <span>N/A</span>
-          </div>
-          <div>
-            <strong>Last Audit Date:</strong>
-            <span>N/A</span>
-          </div>
-        </div>
         <div id="oxyplug-is-processing">
           <span>* Please do not close while it is processing...</span>
           <div></div>
@@ -50,6 +40,9 @@
         <div class="oxyplug-tabs">
           <button id="all-issue" class="button button-small">
             All<span>0</span>
+          </button>
+          <button id="load-fails-issue" class="button button-small">
+            Load Fails<span>0</span>
           </button>
           <button id="src-issue" class="button button-small">
             Src<span>0</span>
@@ -72,9 +65,6 @@
           <button id="filesize-issue" class="button button-small">
             Filesize<span>0</span>
           </button>
-          <button id="load-fails-issue" class="button button-small">
-            Load Fails<span>0</span>
-          </button>
           <button id="nx-issue" class="button button-small">
             No 2x<span>0</span>
           </button>
@@ -83,9 +73,6 @@
           </button>
           <button id="lazy-load-issue" class="button button-small">
             Lazy Load<span>0</span>
-          </button>
-          <button id="has-space-issue" class="button button-small">
-            Has Space<span>0</span>
           </button>
           <button id="preload-lcp-issue" class="button button-small">
             Preload LCP<span>0</span>
@@ -118,11 +105,11 @@
 
       <label for="oxyplug-max-scrolling">Max Scrolling</label>
       <div class="sub-options">
-        <input id="unlimited-max-scrolling" type="radio" name="max_scrolling" value="u">
-        <label for="unlimited-max-scrolling">Unlimited</label>
-
         <input id="limited-max-scrolling" type="radio" name="max_scrolling" value="l">
         <label for="limited-max-scrolling">Limited (15000px at most)</label>
+
+        <input id="unlimited-max-scrolling" type="radio" name="max_scrolling" value="u">
+        <label for="unlimited-max-scrolling">Unlimited</label>
       </div>
       <input id="oxyplug-max-scrolling" type="number" min="1">
       <div class="h-separator"></div>
@@ -160,6 +147,11 @@
         <input id="oxyplug-hide-x-overlays" type="checkbox">
         <label for="oxyplug-hide-x-overlays">Hide overlays on Oxyplug's X</label>
       </div>
+
+      <div>
+        <input id="oxyplug-dont-audit-same-images" type="checkbox">
+        <label for="oxyplug-dont-audit-same-images">Do not audit the same images</label>
+      </div>
     </div>
 
     <div id="exclusions" class="oxyplug-section oxyplug-list">
@@ -168,13 +160,13 @@
       <ul></ul>
     </div>
 
-    <div id="learn" class="oxyplug-section">
-      <h2>Learn More</h2>
+    <div id="history" class="oxyplug-section oxyplug-list">
+      <h2>Latest 10 audits</h2>
       <ul></ul>
     </div>
 
-    <div id="history" class="oxyplug-section oxyplug-list">
-      <h2>Latest 10 audits</h2>
+    <div id="learn" class="oxyplug-section">
+      <h2>Learn More</h2>
       <ul></ul>
     </div>
 

@@ -1,8 +1,8 @@
 class Audit {
   static issueKey = 'oxyplug-tech-seo-issue-';
-  static dontTryMore = [];
   static loadFailsList = [];
   static LCPs = [];
+  static alreadyAuditeds = {};
 
   /**
    * Audit elements with all validations
@@ -12,68 +12,99 @@ class Audit {
   static async all(imgs) {
     return new Promise(async (resolve, reject) => {
       await Common.log('Auditing images...');
+
       try {
         Audit.issues = {};
         await window.scroll({top: 0});
+
+        // Get failed images
+        Audit.loadFailsList = await Common.getLocalStorage('load_fails') ?? {};
 
         // LCP
         Audit.LCPs = [];
         await Audit.fillLCPs();
 
         let [
-          srcIssuesCount, altIssuesCount, widthIssuesCount,
-          heightIssuesCount, renderedSizeIssuesCount,
-          aspectRatioIssuesCount, filesizeIssuesCount,
-          loadFailsIssuesCount, nxIssuesCount, nextGenFormatsIssuesCount,
-          lazyLoadIssuesCount, LCPsIssuesCount, preloadLCPsIssuesCount,
-          decodingIssuesCount, hasSpaceIssuesCount
-        ] = Array(15).fill(0);
+          loadFailsIssuesCount, srcIssuesCount, altIssuesCount,
+          widthIssuesCount, heightIssuesCount, renderedSizeIssuesCount,
+          aspectRatioIssuesCount, filesizeIssuesCount, nxIssuesCount,
+          nextGenFormatsIssuesCount, lazyLoadIssuesCount, LCPsIssuesCount,
+          preloadLCPsIssuesCount, decodingIssuesCount
+        ] = Array(14).fill(0);
 
         let index = 1;
 
+        // Whether to audit excluded images or not
         const exclusions = await Common.getLocalStorage('exclusions');
+
+        // Whether to audit already audited images or not
+        const dontAuditSameImages = await Common.getLocalStorage('dont_audit_same_images');
+        Audit.alreadyAuditeds = {};
+
         for (let img of imgs) {
           // Stopped
           const stopped = await ContentScript.checkStop();
-
           if (stopped) return resolve(await Audit.getEmptyIssues());
 
+          // Audit the same images again?
+          let reAudit = true;
+          if (dontAuditSameImages) {
+            reAudit = !Audit.alreadyAuditeds[img.src];
+          }
+
+          // Not to audit excluded srcs
           let excluded = false;
-          if (exclusions && exclusions[location.host]) {
-            const excludedImage = exclusions[location.host];
-            if (excludedImage.indexOf(img.src) !== -1 || excludedImage.indexOf(img.currentSrc) !== -1) {
+          if (exclusions && exclusions[location.href]) {
+            const excludedImage = exclusions[location.href];
+            if (excludedImage.indexOf(img.src) !== -1) {
               excluded = true;
             }
           }
+
           // If the <img> is inside <picture> and has various densities/DPRs/dimensions,
           // it needs to replace the src with currentSrc in order not to load the other images that are for the other DPRs.
           // For example, when the loaded image is 300x300 with <source> but the <img> has the src of image 100x100.
           if (img.currentSrc != '' && img.src != img.currentSrc) {
+            const tempNaturalWidth = img.naturalWidth;
+            const tempNaturalHeight = img.naturalHeight;
             img.src = img.currentSrc;
+            if (img.naturalWidth > 1 && img.naturalHeight > 1) {
+              img.dataset.naturalHeight = img.naturalHeight;
+              img.dataset.naturalWidth = img.naturalWidth;
+            } else {
+              img.dataset.naturalHeight = tempNaturalHeight;
+              img.dataset.naturalWidth = tempNaturalWidth;
+            }
           }
 
-          if (Audit.dontTryMore.indexOf(img.src) === -1 && excluded === false && img.clientHeight > 1 && img.clientWidth > 1) {
+          if (
+            excluded === false &&
+            reAudit &&
+            img.clientHeight > 1 && img.clientWidth > 1
+          ) {
             img.dataset.oxyplug_tech_i = String(index++);
+            if (await Audit.loadFails(img) === false) loadFailsIssuesCount++;
             if (await Audit.src(img) === false) srcIssuesCount++;
             if (await Audit.alt(img) === false) altIssuesCount++;
             if (await Audit.width(img) === false) widthIssuesCount++;
             if (await Audit.height(img) === false) heightIssuesCount++;
-            if (await Audit.renderedSize(img) === false) renderedSizeIssuesCount++;
-            if (await Audit.aspectRatio(img) === false) aspectRatioIssuesCount++;
-            if (await Audit.filesize(img) === false) filesizeIssuesCount++;
-            if (await Audit.loadFails(img) === false) loadFailsIssuesCount++;
+            // No need to scan while it is not loaded
+            if (!Audit.loadFailsList[img.src]) {
+              if (await Audit.renderedSize(img) === false) renderedSizeIssuesCount++;
+              if (await Audit.aspectRatio(img) === false) aspectRatioIssuesCount++;
+              if (await Audit.filesize(img) === false) filesizeIssuesCount++;
+            }
             if (await Audit.nx(img) === false) nxIssuesCount++;
             if (await Audit.nextGenFormats(img) === false) nextGenFormatsIssuesCount++;
             if (await Audit.lazyLoad(img) === false) lazyLoadIssuesCount++;
             if (await Audit.preloadLCP(img) === false) preloadLCPsIssuesCount++;
             if (await Audit.LCP(img) === false) LCPsIssuesCount++;
             if (await Audit.decoding(img) === false) decodingIssuesCount++;
-            if (await Audit.hasSpace(img) === false) hasSpaceIssuesCount++;
           }
+
+          Audit.alreadyAuditeds[img.src] = true;
         }
         await Common.log('All images audited...');
-
-        await chrome.runtime.sendMessage({log: 'All images audited...'});
 
         /**
          * By changing 1st image wrap, it would change the width and height of 2nd image wrap,
@@ -91,6 +122,7 @@ class Audit {
           audit: {date: await Audit.getFormattedDate(), page: location.href},
           issues: Audit.issues,
           count: {
+            'load-fails-issue': loadFailsIssuesCount,
             'src-issue': srcIssuesCount,
             'alt-issue': altIssuesCount,
             'width-issue': widthIssuesCount,
@@ -98,11 +130,9 @@ class Audit {
             'rendered-size-issue': renderedSizeIssuesCount,
             'aspect-ratio-issue': aspectRatioIssuesCount,
             'filesize-issue': filesizeIssuesCount,
-            'load-fails-issue': loadFailsIssuesCount,
             'nx-issue': nxIssuesCount,
             'next-gen-formats-issue': nextGenFormatsIssuesCount,
             'lazy-load-issue': lazyLoadIssuesCount,
-            'has-space-issue': hasSpaceIssuesCount,
             'preload-lcp-issue': preloadLCPsIssuesCount,
             'lcp-issue': LCPsIssuesCount,
             'decoding-issue': decodingIssuesCount,
@@ -117,11 +147,52 @@ class Audit {
         return response;
       })
       .catch(error => {
+        console.log(error);
         return error;
       });
   }
 
   // Validations Start
+  /**
+   * Audit images fails to load
+   * @returns {Promise<boolean>}
+   */
+  static async loadFails(img) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const issueType = 'loadFailsIssue';
+
+        if (img) {
+          let message = '';
+
+          if (Audit.loadFailsList[img.src]) {
+            const httpStatusCode = Audit.loadFailsList[img.src];
+            message = 'The image fails to load with http status code of ' + httpStatusCode + '.';
+          }
+
+          if (await Audit.hasSpace(img)) {
+            message = 'The paths in srcset must not have any space.';
+          }
+
+          if (message !== '') {
+            return resolve(await Audit.addToIssues(message, issueType, img));
+          }
+        }
+
+        resolve(true);
+      } catch (error) {
+        console.log(error);
+        reject(false);
+      }
+    })
+      .then(response => {
+        return response;
+      })
+      .catch(response => {
+        return response;
+      });
+  };
+
   /**
    * Audit src
    * @returns {Promise<boolean>}
@@ -263,19 +334,17 @@ class Audit {
   };
 
   /**
-   * Compare the rendered and original size to be the same
-   * @param imgNaturalWidth
-   * @param imgNaturalHeight
-   * @param newImg
-   * @param img
-   * @returns {Promise<unknown>}
+   * Audit rendered size
+   * @returns {Promise<boolean>}
    */
-  static async checkSizes(imgNaturalWidth, imgNaturalHeight, newImg = undefined, img) {
+  static async renderedSize(img) {
     return new Promise(async (resolve, reject) => {
       try {
+        const imgNaturalWidth = img.dataset.naturalWidth;
+        const imgNaturalHeight = img.dataset.naturalHeight;
+
         const issueType = 'renderedSizeIssue';
         const tolerance = 1;
-        img = newImg !== undefined ? newImg : img;
         const addedTolerance = {
           imgWidthMinus: img.width - tolerance,
           imgWidthPlus: img.width + tolerance,
@@ -297,56 +366,7 @@ class Audit {
           return resolve(await Audit.addToIssues(message, issueType, img));
         }
 
-        resolve(true);
-      } catch (error) {
-        console.log(error);
-        reject(false);
-      }
-    })
-      .then(response => {
-        return response;
-      })
-      .catch(response => {
-        return response;
-      });
-  }
-
-  /**
-   * Audit rendered size
-   * @returns {Promise<boolean>}
-   */
-  static async renderedSize(img) {
-    return new Promise(async (resolve, reject) => {
-      try {
-        let imgNaturalWidth = img.naturalWidth;
-        let imgNaturalHeight = img.naturalHeight;
-        const src = img.currentSrc != '' ? img.currentSrc : img.src;
-        if (
-          ((imgNaturalWidth == 0 || imgNaturalHeight == 0) || (imgNaturalWidth == 1 && imgNaturalHeight == 1)) &&
-          !(Audit.loadFailsList && Audit.loadFailsList[src])
-        ) {
-          // Create new img
-          const newImg = document.createElement('img');
-
-          // Wait for image to load
-          newImg.srcset = img.srcset;
-          newImg.src = src;
-          try {
-            await Audit.getImage(newImg);
-
-            // Update width and height
-            imgNaturalWidth = newImg.naturalWidth;
-            imgNaturalHeight = newImg.naturalHeight;
-
-            return resolve(await Audit.checkSizes(imgNaturalWidth, imgNaturalHeight, newImg, img));
-          } catch (error) {
-            Audit.dontTryMore.push(error.currentSrc);
-          }
-        } else {
-          return resolve(await Audit.checkSizes(imgNaturalWidth, imgNaturalHeight, img));
-        }
-
-        resolve(true);
+        return resolve(true);
       } catch (error) {
         console.log(error);
         reject(false);
@@ -369,7 +389,7 @@ class Audit {
       try {
         const issueType = 'aspectRatioIssue';
         const tolerance = 1;
-        if (Math.abs((img.naturalWidth / img.naturalHeight) - (img.width / img.height)) > tolerance) {
+        if (Math.abs((img.dataset.naturalWidth / img.dataset.naturalHeight) - (img.width / img.height)) > tolerance) {
           return resolve(await Audit.addToIssues('The aspect-ratio of the rendered image doesn\'t equal the aspect-ratio of the original image.', issueType, img));
         }
 
@@ -396,43 +416,10 @@ class Audit {
       try {
         const issueType = 'filesizeIssue';
         if (img) {
-          const src = img.currentSrc != '' ? img.currentSrc : img.src;
           const maxImageFilesize = await Common.getLocalStorage('max_image_filesize'); // KB
           const imageFilesizes = await Common.getLocalStorage('image_filesizes');
-
-          if (imageFilesizes && imageFilesizes[src] && imageFilesizes[src] > maxImageFilesize) {
+          if (imageFilesizes && imageFilesizes[img.src] && imageFilesizes[img.src] > maxImageFilesize) {
             return resolve(await Audit.addToIssues('The image filesize is bigger than ' + maxImageFilesize + ' KB.', issueType, img));
-          }
-        }
-
-        resolve(true);
-      } catch (error) {
-        console.log(error);
-        reject(false);
-      }
-    })
-      .then(response => {
-        return response;
-      })
-      .catch(response => {
-        return response;
-      });
-  };
-
-  /**
-   * Audit images fails to load
-   * @returns {Promise<boolean>}
-   */
-  static async loadFails(img) {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const issueType = 'loadFailsIssue';
-        if (img) {
-          const src = img.currentSrc != '' ? img.currentSrc : img.src;
-          if (Audit.loadFailsList && Audit.loadFailsList[src]) {
-            Audit.dontTryMore.push(src);
-            const httpStatusCode = Audit.loadFailsList[src];
-            return resolve(await Audit.addToIssues('The image fails to load with http status code of ' + httpStatusCode + '.', issueType, img));
           }
         }
 
@@ -460,8 +447,7 @@ class Audit {
       try {
         const issueType = 'nxIssue';
         if (img) {
-          const src = img.currentSrc != '' ? img.currentSrc : img.src;
-          if (src.toLowerCase().endsWith('.svg')) {
+          if (img.src.toLowerCase().endsWith('.svg')) {
             return resolve(true);
           }
 
@@ -469,15 +455,9 @@ class Audit {
           let srcsets = null;
 
           // <picture srcset="...">
-          const parentElement = img.parentElement;
-          if (parentElement) {
-            const grandParent = parentElement.parentElement;
-            if (grandParent && grandParent.tagName === 'PICTURE') {
-              const sources = grandParent.querySelectorAll('source');
-              if (sources.length) {
-                srcsets = sources[0].getAttribute('srcset');
-              }
-            }
+          const sources = await Audit.getPictureSources(img);
+          if (sources.length) {
+            srcsets = sources[0].getAttribute('srcset');
           }
 
           // <img srcset="...">
@@ -517,24 +497,28 @@ class Audit {
   static async nextGenFormats(img) {
     return new Promise(async (resolve, reject) => {
       try {
-        const src = img.currentSrc != '' ? img.currentSrc : img.src;
-        if (src.toLowerCase().endsWith('.svg')) {
+        if (img.src.toLowerCase().endsWith('.svg')) {
           return resolve(true);
         }
 
         const issueType = 'nextGenFormatsIssue';
-        let parent = img.parentElement;
-        if (parent.tagName.toLowerCase() === 'div' && [...parent.classList].includes('oxyplug-tech-seo')) {
-          parent = parent.parentElement;
-        }
-        if (parent.tagName.toLowerCase() === 'picture') {
-          const nextGens = parent.querySelector('source[type="image/webp"], source[type="image/avif"]');
-          if (nextGens) {
-            return resolve(true);
+        let parentElement = img.parentElement;
+        for (let p = 1; p <= 3; p++) {
+          if (parentElement) {
+            if (parentElement.tagName.toLowerCase() === 'picture') {
+              const nextGens = parentElement.querySelector('source[type="image/webp"], source[type="image/avif"]');
+              if (nextGens) {
+                return resolve(true);
+              }
+            }
+
+            parentElement = parentElement.parentElement;
+          } else {
+            break;
           }
         }
 
-        const extension = src.split('.').pop().toLowerCase();
+        const extension = img.src.split('.').pop().toLowerCase();
         if (['wepb', 'avif'].includes(extension) || extension.length > 4) {
           return resolve(true);
         }
@@ -598,19 +582,95 @@ class Audit {
   }
 
   /**
-   * Image path must not have any space
+   * Get <source>s in <picture>
+   * @param img
+   * @returns {Promise<[]>}
+   */
+  static async getPictureSources(img) {
+    return new Promise(resolve => {
+      let sources = [];
+      if (img) {
+        let pictureElement = null;
+        let parentElement = img.parentElement;
+        for (let p = 1; p <= 3; p++) {
+          if (parentElement) {
+            if (parentElement.tagName.toLowerCase() === 'picture') {
+              pictureElement = parentElement;
+              break;
+            }
+
+            parentElement = parentElement.parentElement;
+          } else {
+            break;
+          }
+        }
+
+        if (pictureElement) {
+          sources = pictureElement.querySelectorAll('source');
+        }
+      }
+
+      resolve(sources);
+    })
+      .then(response => {
+        return response;
+      })
+      .catch(error => {
+        console.log(error);
+        return error;
+      });
+  }
+
+  /**
+   * The paths in srcset must not have any space
    * @param img
    * @returns {Promise<unknown>}
    */
   static async hasSpace(img) {
     return new Promise(async (resolve, reject) => {
       try {
-        if (decodeURIComponent(img.src).includes(' ')) {
-          const issueType = 'hasSpaceIssue';
-          return resolve(await Audit.addToIssues('Image path must not have any space.', issueType, img));
+        if (img.src.toLowerCase().endsWith('.svg')) {
+          return resolve(false);
         }
 
-        resolve(true);
+        const hasMultipleSpace = async (el) => {
+          return new Promise(resolve => {
+            if (el.hasAttribute('srcset')) {
+              const srcset = el.getAttribute('srcset');
+              const srcsetSplit = srcset.split(',');
+              for (const srcset of srcsetSplit) {
+                if (/(.*\s){2,}/.test(srcset.trim())) {
+                  return resolve(true);
+                }
+              }
+            }
+
+            resolve(false);
+          })
+            .then(response => {
+              return response;
+            })
+            .catch(_ => {
+              return false;
+            });
+        };
+
+        // <picture srcset="...">
+        const sources = await Audit.getPictureSources(img);
+        if (sources.length) {
+          for (const source of sources) {
+            if (await hasMultipleSpace(source)) {
+              return resolve(true);
+            }
+          }
+        }
+
+        // <img srcset="...">
+        if (await hasMultipleSpace(img)) {
+          return resolve(true);
+        }
+
+        resolve(false);
       } catch (error) {
         console.log(error);
         reject(false);
@@ -634,11 +694,30 @@ class Audit {
       try {
         if (Audit.LCPs.length) {
           if (Audit.LCPs.includes(img)) {
-            const hasPreload = await Common.getElement(`link[rel="preload"][href="${img.src}"]`);
-            if (!hasPreload) {
-              const issueType = 'preloadLcpIssue';
-              return resolve(await Audit.addToIssues('The LCP (Image) is not preloaded with link tag.', issueType, img));
+
+            // check img tag src in href of link tag
+            const imageLink = 'head > link[rel="preload"][as="image"]';
+            const hasPreload = await Common.getElement(`${imageLink}[href="${img.src}"]`);
+            if (hasPreload) {
+              return resolve(true);
             }
+
+            // check img tag src in imagesrcset of link tag
+            const preloads = await Common.getElements(imageLink);
+            for (const preload of preloads) {
+              if (preload.hasAttribute('imagesrcset')) {
+                const imagesrcsetSplit = preload.getAttribute('imagesrcset').split(',');
+                for (let imagesrcset of imagesrcsetSplit) {
+                  imagesrcset = imagesrcset.trim().split(' ')[0];
+                  if (imagesrcset == img.src) {
+                    return resolve(true);
+                  }
+                }
+              }
+            }
+
+            const issueType = 'preloadLcpIssue';
+            return resolve(await Audit.addToIssues('The LCP (Image) is not preloaded with link tag.', issueType, img));
           }
         }
 
@@ -765,7 +844,9 @@ class Audit {
 
             currentElement = currentElement.parentElement;
           }
+
           if (closestAnchorTag) {
+            closestAnchorTag.href = '#';
             closestAnchorTag.addEventListener('click', (e) => {
               e.preventDefault();
             });
@@ -790,7 +871,6 @@ class Audit {
   static async addToIssues(message, issueType, img) {
     return new Promise(async (resolve, reject) => {
       try {
-        const src = img.currentSrc != '' ? img.currentSrc : img.src;
         const imgComputedStyle = getComputedStyle(img);
 
         const i = img.dataset.oxyplug_tech_i;
@@ -802,7 +882,7 @@ class Audit {
         } else {
           if (![...img.classList].includes(issueKey)) {
             img.classList.add(issueKey);
-            let imgHeight = imgComputedStyle.height.replace(/px$/, '');
+            let imgHeight = parseFloat(imgComputedStyle.height);
             if (imgHeight == 0) {
               imgHeight = img.clientHeight;
               if (imgHeight == 0 && img.parentElement) {
@@ -810,7 +890,7 @@ class Audit {
               }
             }
 
-            let imgWidth = imgComputedStyle.width.replace(/px$/, '');
+            let imgWidth = parseFloat(imgComputedStyle.width);
             if (imgWidth == 0) {
               imgWidth = img.clientWidth;
               if (imgWidth == 0 && img.parentElement) {
@@ -818,19 +898,11 @@ class Audit {
               }
             }
 
-            // divX
-            const divX = document.createElement('div');
-            divX.classList.add('oxyplug-tech-seo');
-            divX.dataset.width = imgWidth;
-            divX.dataset.height = imgHeight;
-
             // spanX
             const spanX = document.createElement('span');
             spanX.innerText = 'X';
             spanX.classList.add('oxyplug-tech-seo-highlight');
-            const left = Math.ceil(imgWidth / 2);
-            const top = Math.ceil(imgHeight / 2);
-            spanX.style.cssText = `left:${left}px;top:${top}px`;
+
             let XColor = await Common.getLocalStorage('x_color');
             XColor = XColor ? XColor.toString() : '#ff0000';
             let XColorAll = await Common.getLocalStorage('x_color_all');
@@ -855,13 +927,11 @@ class Audit {
               await Common.showIssues(messages, issueTypes);
             });
 
-            // Wrap img in a div
-            divX.append(spanX);
-            img.replaceWith(divX);
-            divX.insertAdjacentElement('afterbegin', img);
+            // Put spanX after img
+            img.after(spanX);
 
             // Prevent default actions including opening links in a new tab
-            await Audit.preventPropagation([divX, img, spanX]);
+            await Audit.preventPropagation([img, spanX]);
 
             // Deactivate parent possible anchor tags
             await Audit.disableATags(spanX);
@@ -876,7 +946,7 @@ class Audit {
             }
           }
 
-          const url = (src && src.trim().length > 0) ? src : 'Without src attribute';
+          const url = (img.src && img.src.trim().length > 0) ? img.src : 'Without src attribute';
           Audit.issues[className] = {
             messages: [message],
             url: url,
@@ -1020,21 +1090,6 @@ class Audit {
   }
 
   /**
-   * Get image if it is not loaded
-   * @param imgElem
-   * @returns {Promise<unknown>}
-   */
-  static async getImage(imgElem) {
-    return new Promise((res, rej) => {
-      if (imgElem.complete) {
-        return res();
-      }
-      imgElem.onload = () => res();
-      imgElem.onerror = () => rej(imgElem);
-    });
-  };
-
-  /**
    * Get width/height from its dataset and apply to it in its css
    * @returns {Promise<void>}
    */
@@ -1042,12 +1097,59 @@ class Audit {
     return new Promise(async (resolve, reject) => {
       await Common.log('Positioning and styling...');
       try {
-        const imgWraps = await Common.getElements('.oxyplug-tech-seo:not(.positioned)');
-        for (const imgWrap of imgWraps) {
-          const imgWidth = imgWrap.dataset.width;
-          const imgHeight = imgWrap.dataset.height;
-          imgWrap.classList.add('positioned');
-          imgWrap.style.cssText = `position:relative;margin:auto;width:${imgWidth}px;height:${imgHeight}px`;
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            const img = entry.target;
+            const spanX = img.nextSibling;
+
+            // Check if it is visible
+            if (entry.isIntersecting) {
+              if (spanX && img) {
+                applyStyles(spanX, img);
+                observer.unobserve(img);
+              }
+            }
+          });
+        });
+
+        const applyStyles = (spanX, img) => {
+          spanX.style.width = img.clientWidth + 'px';
+          spanX.style.height = spanX.style.lineHeight = img.clientHeight + 'px';
+          spanX.style.left = img.offsetLeft + 'px';
+          spanX.style.top = img.offsetTop + 'px';
+
+          const styles = window.getComputedStyle(img);
+          const defaultStyles = window.getComputedStyle(document.querySelector('html'));
+          for (let i = 0; i < styles.length; i++) {
+            const styleName = styles[i];
+            const value = styles.getPropertyValue(styleName);
+            let applyIt = false;
+            if (['width', 'height', 'transform'].includes(styleName)) {
+              applyIt = true;
+            } else if (['right', 'bottom'].includes(styleName)) {
+              if (parseFloat(value) > 0) {
+                applyIt = true;
+              }
+            }
+
+            if (applyIt) {
+              const isDefault = value === defaultStyles.getPropertyValue(styleName);
+              if (!isDefault) {
+                spanX.style[styleName] = value;
+              }
+            }
+          }
+          spanX.style.lineHeight = img.clientHeight + 'px';
+        }
+
+        const spanXs = await Common.getElements('.oxyplug-tech-seo-highlight:not(.positioned)');
+        for (const spanX of spanXs) {
+          spanX.classList.add('positioned');
+          const img = spanX.previousSibling;
+          if (spanX && img) {
+            applyStyles(spanX, img);
+            observer.observe(img);
+          }
         }
 
         await Common.log('Positioned and styled...');
@@ -1091,7 +1193,7 @@ class Audit {
                 let overlaid = true;
 
                 // Exclude Oxyplug's elements
-                ['oxyplug-tech-seo', 'oxyplug-tech-seo-highlight', 'oxyplug-tech-seo-issue'].forEach((className) => {
+                ['oxyplug-tech-seo-highlight', 'oxyplug-tech-seo-issue'].forEach((className) => {
                   if (elem2check.className && elem2check.className.indexOf(className) > -1) {
                     overlaid = false;
                   }
@@ -1149,13 +1251,14 @@ class Audit {
 
   /**
    * Get empty issues
-   * @returns {Promise<{count: {"next-gen-formats-issue": number, "has-space-issue": number, "nx-issue": number, "src-issue": number, "decoding-issue": number, "load-fails-issue": number, "filesize-issue": number, "lazy-load-issue": number, "height-issue": number, "lcp-issue": number, "alt-issue": number, "width-issue": number, "all-issue": number, "rendered-size-issue": number, "aspect-ratio-issue": number, "preload-lcp-issue": number}, issues: {}, audit: {date: string, page: string}}>}
+   * @returns {Promise<{audit: {date: string, page: string}, count: {"next-gen-formats-issue": number, "nx-issue": number, "src-issue": number, "decoding-issue": number, "load-fails-issue": number, "filesize-issue": number, "lazy-load-issue": number, "height-issue": number, "lcp-issue": number, "alt-issue": number, "width-issue": number, "all-issue": number, "rendered-size-issue": number, "aspect-ratio-issue": number, "preload-lcp-issue": number}, issues: {}}>}
    */
   static async getEmptyIssues() {
     return {
       audit: {date: await Audit.getFormattedDate(), page: location.href},
       issues: {},
       count: {
+        'load-fails-issue': 0,
         'src-issue': 0,
         'alt-issue': 0,
         'width-issue': 0,
@@ -1163,11 +1266,9 @@ class Audit {
         'rendered-size-issue': 0,
         'aspect-ratio-issue': 0,
         'filesize-issue': 0,
-        'load-fails-issue': 0,
         'nx-issue': 0,
         'next-gen-formats-issue': 0,
         'lazy-load-issue': 0,
-        'has-space-issue': 0,
         'preload-lcp-issue': 0,
         'lcp-issue': 0,
         'decoding-issue': 0,

@@ -1,28 +1,12 @@
 class Background {
   /**
-   * Remove from local storage
-   * @param keys
-   * @returns {Promise<unknown>}
-   */
-  static async removeLocalStorage(keys) {
-    return new Promise((resolve, reject) => {
-      try {
-        chrome.storage.local.remove(keys, () => {
-          resolve();
-        });
-      } catch (error) {
-        reject(error);
-      }
-    });
-  };
-
-  /**
    * Init
    * @returns {Promise<void>}
    */
   static async setFileSizes() {
     let loadFails = {};
     let imageFilesizes = {};
+
     chrome.webRequest.onHeadersReceived.addListener(async (details) => {
         // Get current tab
         if (!Background.currentTab) {
@@ -30,18 +14,34 @@ class Background {
         }
 
         if (details.tabId !== Background.currentTab.id) {
+          // Image loaded
           if (details.statusCode === 200) {
-            let filesize = 0;
+            // Unset it if it was previously failed to load
+            if (loadFails[details.url]) {
+              delete loadFails[details.url];
+              await Background.setLocalStorage({load_fails: loadFails});
+            }
 
-            details.responseHeaders.forEach((item) => {
-              if (item.name.toLowerCase() === 'content-length') {
-                filesize = Number(item.value) / 1000;
-              }
-            });
+            // Do not add filesize if it has already been added
+            if (!imageFilesizes[details.url]) {
+              let filesize = 0;
 
-            imageFilesizes[details.url] = filesize;
-            await Background.setLocalStorage({image_filesizes: imageFilesizes});
+              details.responseHeaders.forEach((item) => {
+                if (item.name.toLowerCase() === 'content-length') {
+                  filesize = Number(item.value) / 1000;
+                }
+              });
+
+              // add filesize
+              imageFilesizes[details.url] = filesize;
+              await Background.setLocalStorage({image_filesizes: imageFilesizes});
+            }
           } else {
+            if (imageFilesizes[details.url]) {
+              delete imageFilesizes[details.url];
+              await Background.setLocalStorage({image_filesizes: imageFilesizes});
+            }
+
             loadFails[details.url] = details.statusCode;
             await Background.setLocalStorage({load_fails: loadFails});
           }
@@ -107,9 +107,6 @@ class Background {
       try {
         // Get current tab
         Background.currentTab = await Background.getCurrentTab();
-
-        // Remove previous storage
-        await Background.removeLocalStorage('load_fails');
 
         // Audit
         await Background.setFileSizes();

@@ -12,7 +12,6 @@ class ContentScript {
    */
   static async init() {
     ContentScript.issues = {};
-    Audit.loadFailsList = await Common.getLocalStorage('load_fails');
 
     // Reset data after closing the browser/tab
     window.addEventListener('unload', async () => {
@@ -72,10 +71,9 @@ class ContentScript {
         ContentScript.lazyImgs = [];
         ContentScript.lazyTries = [];
         for (const [index, img] of Object.entries(imgs)) {
-          const src = img.currentSrc != '' ? img.currentSrc : img.src;
           if (
-            ((img.naturalWidth == 0 || img.naturalHeight == 0) || (img.naturalWidth == 1 && img.naturalHeight == 1)) &&
-            !(Audit.loadFailsList && Audit.loadFailsList[src])
+            ((img.dataset.naturalWidth == 0 || img.dataset.naturalHeight == 0) || (img.dataset.naturalWidth == 1 && img.dataset.naturalHeight == 1)) &&
+            !Audit.loadFailsList[img.src]
           ) {
             if (img.hasAttribute('loading')) {
               img.dataset.hasLoading = img.getAttribute('loading');
@@ -214,6 +212,7 @@ class ContentScript {
             const progress = 40;
             await ContentScript.postMessage({progress: progress});
             await Common.setLocalStorage({progress: progress});
+
             await scrollBackwardVertically();
           }
         };
@@ -615,7 +614,7 @@ class ContentScript {
               });
 
               // Check with its size if it is loaded, to remove it from the array
-              if ((lazyImg.naturalWidth > 1 && lazyImg.naturalHeight > 1)) {
+              if ((lazyImg.dataset.naturalWidth > 1 && lazyImg.dataset.naturalHeight > 1)) {
                 ContentScript.lazyImgs.splice(i, 1);
               } else {
                 // If it hasn't been loaded for the third time, ignore it
@@ -642,13 +641,17 @@ class ContentScript {
   static async resetElements() {
     return new Promise(async (resolve, reject) => {
       try {
-        const elements = await Common.getElements('.oxyplug-tech-seo');
-        elements.forEach((element) => {
-          const img = element.querySelector('img');
-          const i = img.dataset.oxyplug_tech_i;
-          img.classList.remove(`oxyplug-tech-seo-issue-${i}`);
-          delete img.dataset.oxyplug_tech_i;
-          element.replaceWith(img);
+        const spanXs = await Common.getElements('.oxyplug-tech-seo-highlight');
+        spanXs.forEach((spanX) => {
+          const img = spanX.previousSibling;
+          if (img) {
+            if (img.dataset && img.dataset.oxyplug_tech_i) {
+              const i = img.dataset.oxyplug_tech_i;
+              img.classList.remove(`oxyplug-tech-seo-issue-${i}`);
+              delete img.dataset.oxyplug_tech_i;
+            }
+          }
+          spanX.remove();
         });
 
         resolve();
@@ -688,10 +691,11 @@ class ContentScript {
         try {
           const as = await Common.getElements('a');
           as.forEach((a) => {
+            a.href = '#';
             a.addEventListener('click', (e) => {
               e.preventDefault();
               e.stopPropagation();
-            })
+            });
           });
 
           await Common.log('All <a>s default event prevented and propagation stopped...');
@@ -770,6 +774,7 @@ class ContentScript {
         return response;
       })
       .catch(error => {
+        console.log(error);
         return error;
       });
   }
@@ -783,8 +788,9 @@ class ContentScript {
       try {
         // Direction
         ContentScript.rtl = Boolean(await Common.getLocalStorage('rtl_scrolling'));
+
         // To reset, if already audited
-        const alreadyAudited = await Common.getElement('.oxyplug-tech-seo');
+        const alreadyAudited = await Common.getElement('.oxyplug-tech-seo-highlight');
         if (alreadyAudited) {
           await ContentScript.resetElements();
           await Common.log('Previous elements reset...');
