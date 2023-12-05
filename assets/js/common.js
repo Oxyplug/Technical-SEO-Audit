@@ -79,7 +79,7 @@ class Common {
         <div id="${messageId}" class="oxyplug-modal">
           <div class="oxyplug-modal-content">
             <span class="oxyplug-modal-close">&times;</span>
-            <h1 class="oxyplug-tech-seo-h1">Audit Results</h1>
+            <h1 class="oxyplug-tech-seo-h1">Audit Report</h1>
             <ul></ul>
           </div>
         </div>`;
@@ -102,12 +102,27 @@ class Common {
         span.classList.add('issue-number');
         if (Array.isArray(issueTypes) && issueTypes.length) {
           const id = issueTypes[index];
-          if (['nextGenFormatsIssue', 'lazyLoadIssue', 'hasSpaceIssue', 'preloadLcpIssue'].includes(id)) {
+
+          // Change the color based on criticality
+          if (['nextGenFormatsIssue', 'lazyLoadIssue', 'preloadLcpIssue'].includes(id)) {
             span.classList.add('warning');
           } else if (['lcpIssue', 'decodingIssue'].includes(id)) {
             span.classList.add('info');
           }
 
+          // Highlight the filtered one
+          let filter = document.querySelector('#oxyplug-issue-list > .oxyplug-tabs > button.active');
+          if (filter) {
+            const filterId = filter.id.replace(/-([a-z])/g, (match, letter) => {
+              return letter.toUpperCase();
+            });
+
+            if (id === filterId) {
+              li.classList.add('filtered');
+            }
+          }
+
+          // Add learn more and append
           const host = typeof (Popup) !== 'undefined' ? Popup.currentHost : location.host;
           await Common.setLearnMores(host);
           let utmLink = Common.learnMores['utm-link'];
@@ -289,6 +304,9 @@ class Common {
         Common.learnMores = Common.hostLearnMores[host] = {
           'utm-link': utmLink,
           'issues': {
+            'loadFailsIssue': {
+              'load-fails': "The image fails to load with http status code of X.",
+            },
             'srcIssue': {
               'src': "Without src attribute.",
             },
@@ -311,9 +329,6 @@ class Common {
             'filesizeIssue': {
               'filesize': "The image filesize is bigger than X KB.",
             },
-            'loadFailsIssue': {
-              'load-fails': "The image fails to load with http status code of X.",
-            },
             'nxIssue': {
               'nx': "No 2x image found for DPR 2 devices.",
             },
@@ -323,9 +338,6 @@ class Common {
             'lazyLoadIssue': {
               'lazy-load': "The loading attribute doesn't equal `lazy`.",
               'eager-load': "The loading attribute of LCP image doesn't equal `eager`.",
-            },
-            'hasSpaceIssue': {
-              'has-space': "Image path must not have any space.",
             },
             'preloadLcpIssue': {
               'lcp-preload': "The LCP (Image) is not preloaded with link tag.",

@@ -44,14 +44,6 @@ button {
   font-weight: 500;
 }
 
-#close-overlay {
-  display: none;
-  position: fixed;
-  width: 100%;
-  height: 100vh;
-  z-index: 10;
-}
-
 /* Modal Starts Here */
 .oxyplug-modal {
   --h-space: 20px;
@@ -72,42 +64,13 @@ body {
   background-color: var(--oxyplug-lightest-gray);
 }
 
+.d-none {
+  display: none;
+}
+
 label {
   font-size: 1.1em;
   font-weight: 700;
-}
-
-.button-group {
-  position: relative;
-}
-
-.button-group.open > button {
-  border-bottom-right-radius: 0;
-  border-bottom-left-radius: 0;
-}
-
-.button-group > ul {
-  display: none;
-  list-style: none;
-  background: var(--oxyplug-white-color);
-  width: 100%;
-  position: absolute;
-  left: 0;
-  z-index: 20;
-  padding: 0;
-  margin: 0;
-}
-
-.button-group > ul > li {
-  border-bottom: 1px solid var(--oxyplug-lightest-gray);
-}
-
-.button-group > ul button {
-  cursor: pointer;
-  width: 100%;
-  background: none;
-  border: none;
-  outline: none;
 }
 
 .button {
@@ -132,7 +95,7 @@ label {
 }
 
 .button:not(:disabled):hover,
-.button-group > ul button:not(:disabled):hover {
+.button:not(:disabled):hover > .similar-style {
   box-shadow: inset 0 0 200px rgba(0, 0, 0, 0.1);
 }
 
@@ -379,7 +342,7 @@ nav > a {
 
 #progress-logs {
   display: none;
-  color: var(--oxyplug-dark-black);
+  color: var(--oxyplug-darker-gray);
   font-size: 11px;
   line-height: 1.5;
   position: relative;
@@ -393,7 +356,7 @@ nav > a {
   font-size: 20px;
   line-height: 0.9;
   border: none;
-  color: var(--oxyplug-dark-black);
+  color: var(--oxyplug-darker-gray);
   cursor: pointer;
 }
 
@@ -442,13 +405,13 @@ nav > a {
   border-left-width: 3px;
 }
 
-#oxyplug-issue-list ul li a {
+.oxyplug-list ul li .oxyplug-icon-new-tab {
   color: var(--oxyplug-green);
   margin-right: 3px;
+  text-shadow: 0 0 1px var(--oxyplug-black);
 }
 
-#oxyplug-issue-list ul li button,
-#history > ul li button {
+.oxyplug-list ul li button {
   background: none;
   border: none;
   outline: none;
@@ -457,6 +420,7 @@ nav > a {
   margin-right: 5px;
   vertical-align: middle;
   cursor: pointer;
+  text-shadow: 0 0 1px var(--oxyplug-black);
 }
 
 /* Home Page Ends Here */
@@ -485,7 +449,7 @@ nav > a {
 
 .oxyplug-tabs {
   display: none;
-  margin-bottom: 5px;
+  margin: 5px 0;
 }
 
 .oxyplug-tabs > button {
@@ -493,7 +457,7 @@ nav > a {
 }
 
 .oxyplug-tabs > button.active {
-  background-color: var(--oxyplug-dark-black);
+  background-color: var(--oxyplug-darker-gray);
 }
 
 .oxyplug-tabs > button > span {
@@ -540,7 +504,7 @@ nav > a {
 /* Exclusions Page Starts Here */
 #exclusions h2 {
   margin: 0 0 10px 0;
-  color: var(--oxyplug-dark-black);
+  color: var(--oxyplug-darker-gray);
   border-bottom: 1px solid #aaa;
 }
 
@@ -557,7 +521,7 @@ nav > a {
 /* Info/LearnMore Page Starts Here */
 #learn h2 {
   margin: 0 10px;
-  color: var(--oxyplug-dark-black);
+  color: var(--oxyplug-darker-gray);
   border-bottom: 1px solid #aaa;
 }
 
@@ -581,39 +545,44 @@ nav > a {
 /* History Page Starts Here */
 #history h2 {
   margin: 0 0 10px 0;
-  color: var(--oxyplug-dark-black);
+  color: var(--oxyplug-darker-gray);
   border-bottom: 1px solid #aaa;
 }
 
 #history > ul li {
   cursor: pointer;
   position: relative;
-  padding: 3px 10px 6px 0;
-}
-
-#history > ul li button {
-  margin-right: 3px;
+  padding: 0 10px 28px 0;
 }
 
 #history > ul li > div {
   display: inline-block;
   z-index: 10;
   width: fit-content;
+  height: 100%;
   position: absolute;
+  top: 0;
   padding-left: 5px;
+  line-height: 3.6;
 }
 
 #history > ul li:nth-of-type(odd) > div {
-  background-color: var(--oxyplug-darker-black);
+  color: var(--oxyplug-darkest-gray);
+  background-color: var(--oxyplug-lightest-gray);
 }
 
 #history > ul li:nth-of-type(even) > div {
-  background-color: var(--oxyplug-dark-black);
+  color: var(--oxyplug-darkest-gray);
+  background-color: var(--oxyplug-white-color);
 }
 
 #history > ul li > span {
   display: inline-block;
   position: absolute;
+  height: 100%;
+  width: fit-content;
+  top: 0;
+  line-height: 3.6;
 }
 
 /* History Page Ends Here */

@@ -37,7 +37,17 @@ class Popup {
           if (confirmed) {
             await chrome.tabs.update(processingOn.tabId, {active: true});
           }
-          return;
+          return resolve();
+        }
+
+        // Show body
+        document.body.classList.remove('d-none');
+
+        // Prevent displaying popup on blank pages
+        if (!currentTab.title) {
+          window.close();
+          alert('Looks like the current page is a blank page. Please navigate to a valid webpage to use the extension.');
+          return resolve();
         }
 
         Popup.currentTab = currentTab;
@@ -102,7 +112,7 @@ class Popup {
 
         // Max scrolling
         let maxScrolling = Number(await Common.getLocalStorage('max_scrolling'));
-        maxScrolling = isNaN(maxScrolling) ? 0 : Math.abs(maxScrolling);
+        maxScrolling = isNaN(maxScrolling) ? Popup.maxScrollingDefault : Math.abs(maxScrolling);
         const maxScrollingEl = await Common.getElement('#oxyplug-max-scrolling');
         await Common.setLocalStorage({max_scrolling: maxScrolling});
         maxScrollingEl.max = Popup.maxScrollingMax;
@@ -201,9 +211,17 @@ class Popup {
           Common.setLocalStorage({hide_x_overlays: el.target.checked});
         });
 
+        // Do not audit the same images
+        const dontAuditSameImages = await Common.getLocalStorage('dont_audit_same_images');
+        const dontAuditSameImagesEl = await Common.getElement('#oxyplug-dont-audit-same-images');
+        dontAuditSameImagesEl.checked = dontAuditSameImages ?? false;
+        dontAuditSameImagesEl.addEventListener('change', (el) => {
+          Common.setLocalStorage({dont_audit_same_images: el.target.checked});
+        });
+
         // Get exclusions for exclusions tab
         const exclusions = await Common.getLocalStorage('exclusions');
-        if (exclusions && exclusions[Popup.currentHost] && exclusions[Popup.currentHost].length) {
+        if (exclusions && exclusions[Popup.currentHref] && exclusions[Popup.currentHref].length) {
           const exclusionsEl = await Common.getElement('#exclusions');
           const exclusionsUl = await exclusionsEl.querySelector(':scope > ul');
           const noExclusionsEl = await exclusionsEl.querySelector('p');
@@ -218,24 +236,29 @@ class Popup {
           p.innerText = 'No exclusions.';
 
           // Create the exclusions list
-          for (const exclusion of exclusions[Popup.currentHost]) {
+          for (const exclusion of exclusions[Popup.currentHref]) {
             const exclusionLi = document.createElement('li');
-            exclusionLi.innerText = exclusion;
-            exclusionLi.onclick = async (e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              const index = exclusions[Popup.currentHost].indexOf(exclusion);
-              if (index !== -1)
-                exclusions[Popup.currentHost].splice(index, 1);
-              await Common.setLocalStorage({exclusions});
-              exclusionLi.remove();
+            exclusionLi.innerText = decodeURI(exclusion);
+
+            // Remove
+            const button = document.createElement('button');
+            button.classList.add('oxyplug-icon-bin');
+            button.onclick = async () => {
+              const index = exclusions[Popup.currentHref].indexOf(exclusion);
+              if (index !== -1) {
+                exclusions[Popup.currentHref].splice(index, 1);
+                await Common.setLocalStorage({exclusions});
+                exclusionLi.remove();
+              }
 
               // No exclusions.
               if (!await exclusionsUl.querySelector('li')) {
                 exclusionsEl.append(p);
               }
             };
-            exclusionsUl.append(exclusionLi);
+
+            // Make complete src to be able to show in new tab
+            await Popup.openInNewTab(exclusionsUl, exclusionLi, exclusion, button);
           }
         }
 
@@ -269,9 +292,9 @@ class Popup {
 
         // Clear Xs by reloading the page
         Popup.purgeReload.addEventListener('click', async () => {
-          await Popup.purgeAble(true);
+          Popup.purgeReload.disabled = true;
           await Popup.hideLogs();
-          await Popup.restart2Start();
+          await Popup.renameStart('Start');
           await Popup.resetList();
           await Popup.postMessage({reload: true});
         });
@@ -301,11 +324,10 @@ class Popup {
                       // Fill issues list
                       Popup.issues = request.issues;
 
-                      await Popup.loadLastAudit(request.issues);
                       await Popup.loadList(request.issues);
-                      await Popup.start2Restart();
-                      await Popup.stopAble();
-                      await Popup.purgeAble(false);
+                      await Popup.renameStart('Restart');
+                      Popup.stop.disable = false;
+                      Popup.purgeReload.disabled = false;
                       await Popup.highlightActiveUrl();
                       await Popup.highlightActiveFilter();
                       const log = 'Auditing finished.';
@@ -330,7 +352,7 @@ class Popup {
         });
 
         if (Popup.issues && Object.keys(Popup.issues).length) {
-          await Popup.stopAble();
+          Popup.stop.disable = false;
         }
 
         // Navigation between the pages
@@ -404,6 +426,62 @@ class Popup {
   }
 
   /**
+   * Open in new tab with a or javascript
+   * @param ul
+   * @param li
+   * @param exclusion
+   * @param button
+   * @param type
+   * @returns {Promise<void>}
+   */
+  static async openInNewTab(ul, li, exclusion, button, type = 1) {
+    let completeSrc = exclusion;
+    if (!completeSrc.startsWith('data:image')) {
+      if (!completeSrc.startsWith('http')) {
+        const currentTabUrl = new URL(Popup.currentTab.url);
+        completeSrc = completeSrc.replace(/^\/+/, '');
+        completeSrc = currentTabUrl.origin + '/' + completeSrc;
+      }
+      const currentPageUrl = new URL(completeSrc);
+      currentPageUrl.searchParams.set('by-oxyplug-tech-seo', 'true');
+      completeSrc = currentPageUrl.toString();
+    }
+
+    // Open in new tab
+    const a = document.createElement('a');
+    a.classList.add('oxyplug-icon-new-tab');
+    if (completeSrc.startsWith('data:image')) {
+      a.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!window.myWindow || window.myWindow.closed) {
+          window.myWindow = window.open('');
+          myWindow.document.write(`<img src="${completeSrc}" />`);
+        } else {
+          window.myWindow.focus();
+        }
+      };
+      if (type === 2) {
+        li.prepend(a);
+      }
+    } else {
+      a.href = completeSrc;
+      a.target = '_blank';
+      a.onclick = (e) => {
+        e.stopPropagation();
+      };
+      if (type === 2) {
+        li.prepend(a);
+      }
+    }
+
+    if (type === 1) {
+      li.prepend(a, button);
+      ul.append(li);
+    }
+  }
+
+  /**
    * Init data when popup pops up
    * @returns {Promise<unknown>}
    */
@@ -413,16 +491,12 @@ class Popup {
         // Load issues on the page (From Storage)
         Popup.issues = await Common.getLocalStorage('issues');
         if (Popup.issues && Object.keys(Popup.issues).length) {
-          await Popup.loadLastAudit(Popup.issues);
-          const allIssues = await Common.getLocalStorage('all_issues');
-          // Check if the current issues is the last issues and is related to the current page
-          if (
-            Popup.issues.audit.page === Popup.currentHref &&
-            JSON.stringify(Popup.issues) === JSON.stringify(allIssues[allIssues.length - 1])
-          ) {
-            await Popup.purgeAble(false);
-            await Popup.start2Restart();
+          // Check if the current issues is related to the current page
+          if (Popup.issues.audit.page === Popup.currentHref) {
+            Popup.purgeReload.disabled = false;
+            await Popup.renameStart('Restart');
             await Popup.loadList(Popup.issues);
+            await Popup.loadLogs();
           }
         }
 
@@ -454,12 +528,12 @@ class Popup {
         if (isProcessing) {
           await Popup.toggleSpinner('block');
           await Popup.toggleList('none');
-          Popup.start.disabled = true;
+          Popup.start.disabled = Popup.purgeReload.disabled = true;
           Popup.stop.disabled = false;
         } else {
           await Popup.toggleSpinner('none');
           await Popup.toggleList('block');
-          Popup.start.disabled = false;
+          Popup.start.disabled = Popup.purgeReload.disabled = false;
           Popup.stop.disabled = true;
         }
 
@@ -570,27 +644,6 @@ class Popup {
   }
 
   /**
-   * Load last audit page and date
-   * @param issues
-   * @returns {Promise<void>}
-   */
-  static async loadLastAudit(issues) {
-    let lastAuditDate = 'N/A';
-    let lastAuditPage = 'N/A';
-    if (issues.audit) {
-      lastAuditDate = issues.audit.date;
-      lastAuditPage = issues.audit.page;
-    }
-
-    // Set last audit page and date
-    const lastAuditEl = await Common.getElement('#last-audit');
-    const pageEl = lastAuditEl.querySelector('div:nth-of-type(1) > span');
-    pageEl.innerText = lastAuditPage;
-    const dateEl = lastAuditEl.querySelector('div:nth-of-type(2) > span');
-    dateEl.innerText = lastAuditDate;
-  }
-
-  /**
    * Load the list of issues
    * @param issues
    * @returns {Promise<void>}
@@ -636,7 +689,6 @@ class Popup {
             details.issueTypes.forEach((issueType) => {
               li.dataset[issueType] = 1;
             });
-            li.innerText = srcExcerpt;
             li.title = srcExcerpt;
             li.onclick = (el) => {
               const liActive = issueList.querySelector('li.active');
@@ -657,6 +709,10 @@ class Popup {
               });
             };
 
+            const span = document.createElement('span');
+            span.innerText = decodeURI(srcExcerpt);
+            li.append(span);
+
             // Filter the list
             const filterTarget = 'data-' + await Common.getLocalStorage('active_filter');
             if (filterTarget == 'data-all-issue') {
@@ -673,7 +729,6 @@ class Popup {
               excludeButton.classList.add('oxyplug-icon-exclude');
               excludeButton.onclick = async (e) => {
                 e.stopPropagation();
-                e.preventDefault();
                 const parent = e.target.parentNode;
                 if (Popup.issues && Object.keys(Popup.issues).length) {
                   const item = Popup.issues['issues'][parent.dataset.target];
@@ -681,12 +736,21 @@ class Popup {
                     // Exclude src
                     const exclusion = item['url'];
                     let exclusions = await Common.getLocalStorage('exclusions');
-                    if (!exclusions || Object.keys(exclusions).length === 0)
-                      exclusions = {[Popup.currentHost]: [exclusion]};
-                    else if (!exclusions[Popup.currentHost])
-                      exclusions[Popup.currentHost] = [exclusion];
-                    else if (!exclusions[Popup.currentHost].includes(exclusion))
-                      exclusions[Popup.currentHost].push(exclusion);
+                    if (!exclusions || Object.keys(exclusions).length === 0) {
+                      exclusions = {[Popup.currentHref]: [exclusion]};
+                    } else {
+                      const exclusionsKey = Object.keys(exclusions);
+                      // Delete one href not to make it bigger than 10
+                      if (exclusionsKey.length === 10) {
+                        const anHref = exclusionsKey[0];
+                        delete exclusions[anHref];
+                      }
+
+                      if (!exclusions[Popup.currentHref])
+                        exclusions[Popup.currentHref] = [exclusion];
+                      else if (!exclusions[Popup.currentHref].includes(exclusion))
+                        exclusions[Popup.currentHref].push(exclusion);
+                    }
 
                     await Common.setLocalStorage({exclusions});
 
@@ -701,16 +765,20 @@ class Popup {
 
                     // Add exclusion to the exclusions list
                     const exclusionLi = document.createElement('li');
-                    exclusionLi.innerText = exclusion;
-                    exclusionLi.onclick = async (e) => {
+                    exclusionLi.innerText = decodeURI(exclusion);
+
+                    // Remove
+                    const button = document.createElement('button');
+                    button.classList.add('oxyplug-icon-bin');
+                    button.onclick = async (e) => {
                       e.stopPropagation();
-                      e.preventDefault();
                       const exclusions = await Common.getLocalStorage('exclusions');
-                      const index = exclusions[Popup.currentHost].indexOf(exclusion);
-                      if (index !== -1)
-                        exclusions[Popup.currentHost].splice(index, 1);
-                      await Common.setLocalStorage({exclusions});
-                      exclusionLi.remove();
+                      const index = exclusions[Popup.currentHref].indexOf(exclusion);
+                      if (index !== -1) {
+                        exclusions[Popup.currentHref].splice(index, 1);
+                        await Common.setLocalStorage({exclusions});
+                        exclusionLi.remove();
+                      }
 
                       // No exclusions.
                       const p = document.createElement('p');
@@ -719,7 +787,10 @@ class Popup {
                         exclusionsEl.append(p);
                       }
                     };
-                    exclusionsUl.append(exclusionLi);
+
+                    // Make complete src to be able to show in new tab
+                    await Popup.openInNewTab(exclusionsUl, exclusionLi, exclusion, button);
+
                     const noExclusionsEl = await exclusionsEl.querySelector('p');
                     if (noExclusionsEl) {
                       noExclusionsEl.remove();
@@ -740,7 +811,13 @@ class Popup {
                       const allIssueEl = await Common.getElement('#all-issue .has-issue');
                       allIssueEl.innerText = parseInt(allIssueEl.innerText) - 1;
                     }
-                    await Common.setLocalStorage({issues: Popup.issues});
+
+                    // To make issues & last item of all_issues the same
+                    const allIssues = await Common.getLocalStorage('all_issues');
+                    allIssues[allIssues.length - 1] = Popup.issues;
+
+                    // Store in localstorage
+                    await Common.setLocalStorage({issues: Popup.issues, all_issues: allIssues});
                   }
                 }
 
@@ -756,40 +833,7 @@ class Popup {
               li.prepend(excludeButton);
 
               // Make complete src to be able to show in new tab
-              if (!completeSrc.startsWith('data:image')) {
-                if (!completeSrc.startsWith('http')) {
-                  const currentTabUrl = new URL(Popup.currentTab.url);
-                  completeSrc = completeSrc.replace(/^\/+/, '');
-                  completeSrc = currentTabUrl.origin + '/' + completeSrc;
-                }
-                const currentPageUrl = new URL(completeSrc);
-                currentPageUrl.searchParams.set('by-oxyplug-tech-seo', 'true');
-                completeSrc = currentPageUrl.toString();
-              }
-
-              // Open in new tab
-              const a = document.createElement('a');
-              a.classList.add('oxyplug-icon-new-tab');
-              if (completeSrc.startsWith('data:image')) {
-                a.onclick = (e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (!window.myWindow || window.myWindow.closed) {
-                    window.myWindow = window.open('');
-                    myWindow.document.write(`<img src="${completeSrc}" />`);
-                  } else {
-                    window.myWindow.focus();
-                  }
-                };
-                li.prepend(a);
-              } else {
-                a.href = completeSrc;
-                a.target = '_blank';
-                a.onclick = (e) => {
-                  e.stopPropagation();
-                };
-                li.prepend(a);
-              }
+              await Popup.openInNewTab(exclusionsUl, li, completeSrc, excludeButton, 2);
 
               issueList.append(li);
             }
@@ -846,7 +890,7 @@ class Popup {
           span.classList.remove('has-issue');
         }
 
-        if (['next-gen-formats-issue', 'lazy-load-issue', 'has-space-issue', 'preload-lcp-issue'].includes(id)) {
+        if (['next-gen-formats-issue', 'lazy-load-issue', 'preload-lcp-issue'].includes(id)) {
           span.classList.add('warning');
         } else if (['lcp-issue', 'decoding-issue'].includes(id)) {
           span.classList.add('info');
@@ -897,36 +941,12 @@ class Popup {
   };
 
   /**
-   * Rename the text of `Start` button to `Restart`
+   * Rename `Start` button
    * @returns {Promise<void>}
    */
-  static async start2Restart() {
-    Popup.start.innerText = 'Restart';
+  static async renameStart(text) {
+    Popup.start.innerText = text;
   };
-
-  /**
-   * Rename the text of `Restart` button to `Start`
-   * @returns {Promise<void>}
-   */
-  static async restart2Start() {
-    Popup.start.innerText = 'Start';
-  };
-
-  /**
-   * Enable/Disable Stop
-   * @returns {Promise<void>}
-   */
-  static async stopAble(able = false) {
-    Popup.stop.disable = able;
-  };
-
-  /**
-   * Enable/Disable Purge
-   * @returns {Promise<void>}
-   */
-  static async purgeAble(able = false) {
-    Popup.purgeReload.disabled = able;
-  }
 
   /**
    * Hide logs
@@ -1013,6 +1033,20 @@ class Popup {
     if (logsBoxIsHidden === false) {
       const progressLogsEl = await Common.getElement('#progress-logs');
       progressLogsEl.style.display = 'block';
+    }
+  }
+
+  /**
+   * Load logs
+   * @returns {Promise<void>}
+   */
+  static async loadLogs() {
+    const logs = await Common.getLocalStorage('logs');
+    if (logs && logs[Popup.currentHost]) {
+      for (const logText of logs[Popup.currentHost]) {
+        await Popup.addToLogsList(logText);
+      }
+      await Popup.showLogs();
     }
   }
 
@@ -1109,12 +1143,27 @@ class Popup {
         }
 
         const refreshList = async () => {
+          // Clear the list
           const issuesHistoryList = await Common.getElement('#history ul');
           issuesHistoryList.innerHTML = '';
+
+          // Remove no issues <p>
+          const noIssuesHistory = await Common.getElement('#history > p');
+          if (noIssuesHistory) {
+            noIssuesHistory.remove();
+          }
+
           if (allIssues && allIssues.length) {
             allIssues.forEach((issues, key) => {
               // li
               const li = document.createElement('li');
+              li.classList.add('button');
+
+              // Open in new tab
+              const a = document.createElement('a');
+              a.classList.add('oxyplug-icon-new-tab');
+              a.href = issues.audit.page;
+              a.target = '_blank';
 
               // button
               const button = document.createElement('button');
@@ -1129,14 +1178,19 @@ class Popup {
                 }
               }
 
+              // date span
+              const dateSpan = document.createElement('span');
+              dateSpan.innerText = `${issues.audit.date} - `;
+
               // div
               const div = document.createElement('div');
-              div.append(button, `${issues.audit.date} - `);
+              div.classList.add('similar-style');
+              div.append(a, button, dateSpan);
               li.append(div);
 
               // span
               const span = document.createElement('span');
-              span.innerText = issues.audit.page;
+              span.innerText = decodeURI(issues.audit.page);
 
               // li listeners
               li.onmouseenter = () => {
@@ -1146,12 +1200,9 @@ class Popup {
                 }
               };
               li.onmouseleave = () => {
-                if (li.scrollWidth > li.clientWidth) {
-                  stopMarquee(span);
-                }
+                stopMarquee(span);
               };
               li.onclick = async () => {
-                await Popup.loadLastAudit(issues);
                 await Popup.loadList(issues);
                 const homeButton = await Common.getElement('.oxyplug-section button.oxyplug-icon-home');
                 homeButton.click();
@@ -1160,7 +1211,7 @@ class Popup {
 
               // append
               li.append(span);
-              issuesHistoryList.append(li);
+              issuesHistoryList.prepend(li);
             });
 
             // Keep div `width` to reset span `left`

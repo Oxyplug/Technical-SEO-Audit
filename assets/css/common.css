@@ -5,9 +5,9 @@
   --oxyplug-black: #000;
   --oxyplug-alpha-black-6: rgba(0, 0, 0, 0.6);
   --oxyplug-alpha-black-3: rgba(0, 0, 0, 0.3);
-  --oxyplug-dark-black: #555;
-  --oxyplug-darker-black: #333;
 
+  --oxyplug-darkest-gray: #333;
+  --oxyplug-darker-gray: #555;
   --oxyplug-dark-gray: #888;
   --oxyplug-gray: #aaa;
   --oxyplug-lighter-gray: #ccc;
@@ -164,8 +164,13 @@
 .oxyplug-modal-content ul li {
   margin-bottom: 5px;
   background: var(--oxyplug-lightest-gray);
+  color: var(--oxyplug-darkest-gray);
   padding: 8px;
   position: relative;
+}
+
+.oxyplug-modal-content ul li.filtered {
+  background: var(--oxyplug-lighter-gray);
 }
 
 .oxyplug-modal-content ul li span {
@@ -229,21 +234,36 @@
 }
 
 .oxyplug-list > ul li {
-  padding: 3px 10px 6px 5px;
-  margin-bottom: 1px;
+  padding: 8px 10px 8px 5px;
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   border-left: 0 solid var(--oxyplug-green);
+  border-radius: 0;
   transition: border-left 0.2s;
 }
 
 .oxyplug-list > ul li:nth-of-type(odd) {
-  background-color: var(--oxyplug-darker-black);
+  color: var(--oxyplug-darkest-gray);
+  background-color: var(--oxyplug-lightest-gray);
 }
 
 .oxyplug-list > ul li:nth-of-type(even) {
-  background-color: var(--oxyplug-dark-black);
+  color: var(--oxyplug-darkest-gray);
+  background-color: var(--oxyplug-white-color);
+}
+
+.oxyplug-list > ul li > :nth-of-type(1),
+.oxyplug-list > ul li .similar-style > :nth-of-type(1) {
+    vertical-align: middle;
+}
+
+.oxyplug-list > ul li:last-of-type {
+  border-bottom: 1px solid var(--oxyplug-lightest-gray);
+}
+
+.oxyplug-list > ul li :is([class^="oxyplug-icon-"], [class*=" oxyplug-icon-"]) {
+  font-size: 1.8em;
 }
