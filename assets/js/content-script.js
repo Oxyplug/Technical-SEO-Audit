@@ -71,18 +71,27 @@ class ContentScript {
         ContentScript.lazyImgs = [];
         ContentScript.lazyTries = [];
         for (const [index, img] of Object.entries(imgs)) {
+          const naturalWidth = parseInt(img.dataset.naturalWidth) || 0;
+          const naturalHeight = parseInt(img.dataset.naturalHeight) || 0;
           if (
-            ((img.dataset.naturalWidth == 0 || img.dataset.naturalHeight == 0) || (img.dataset.naturalWidth == 1 && img.dataset.naturalHeight == 1)) &&
+            ((naturalWidth == 0 || naturalHeight == 0) || (naturalWidth == 1 && naturalHeight == 1)) &&
             !Audit.loadFailsList[img.src]
           ) {
+            const lazyImgClass = `oxyplug-tech-seo-lazy-${index}`;
+            img.addEventListener('load', () => {
+              if (img.complete) {
+                ContentScript.lazyImgs = ContentScript.lazyImgs.filter(lazyImg => !lazyImg.hasOwnProperty(lazyImgClass));
+              }
+            });
+
             if (img.hasAttribute('loading')) {
               img.dataset.hasLoading = img.getAttribute('loading');
             } else {
               img.dataset.hasLoading = 'no';
             }
             img.setAttribute('loading', 'eager');
-            img.classList.add(`oxyplug-tech-seo-lazy-${index}`);
-            ContentScript.lazyImgs.push(img);
+            img.classList.add(lazyImgClass);
+            ContentScript.lazyImgs.push({[lazyImgClass]: img});
           }
         }
 
@@ -602,24 +611,18 @@ class ContentScript {
             await Common.log('Lazy images loaded...');
             resolve();
           } else {
-            for (let i = ContentScript.lazyImgs.length - 1; i >= 0; i--) {
-              const lazyImg = ContentScript.lazyImgs[i];
-              const className = lazyImg.className;
-
-              // Check if it is loaded, to remove it from the array
-              lazyImg.addEventListener('load', () => {
-                if (lazyImg.complete) {
-                  ContentScript.lazyImgs.splice(i, 1);
-                }
-              });
+            for (let i = 0; i < ContentScript.lazyImgs.length; i++) {
+              let lazyImg = ContentScript.lazyImgs[i];
+              const className = Object.keys(lazyImg)[0];
+              lazyImg = Object.values(lazyImg)[0];
 
               // Check with its size if it is loaded, to remove it from the array
-              if ((lazyImg.dataset.naturalWidth > 1 && lazyImg.dataset.naturalHeight > 1)) {
-                ContentScript.lazyImgs.splice(i, 1);
+              if ((lazyImg.naturalWidth > 1 && lazyImg.naturalHeight > 1)) {
+                ContentScript.lazyImgs = ContentScript.lazyImgs.filter(lazyImg => !lazyImg.hasOwnProperty(className));
               } else {
                 // If it hasn't been loaded for the third time, ignore it
                 if (ContentScript.lazyTries[className] && ContentScript.lazyTries[className] >= 3) {
-                  ContentScript.lazyImgs.splice(i, 1);
+                  ContentScript.lazyImgs = ContentScript.lazyImgs.filter(lazyImg => !lazyImg.hasOwnProperty(className));
                 } else {
                   ContentScript.lazyTries[className] = ContentScript.lazyTries[className] ? ContentScript.lazyTries[className] + 1 : 1;
                 }
@@ -798,16 +801,20 @@ class ContentScript {
           await ContentScript.unsetDefaultScrollBehavior();
           await ContentScript.disableATags();
           await ContentScript.removeEventListeners();
+
+          // Lazy images not loaded
           const imgs = await Common.getElements('img');
           await ContentScript.markLazies(imgs);
-          if (ContentScript.lazyImgs.length) {
-            // Scroll the page
-            const result = await ContentScript.scrollPage();
 
-            // Mark scrollables like carousels and scroll them to load lazy images
-            if (result !== 'stopped') {
-              await ContentScript.markScrollables();
-              const result = await ContentScript.scrollScrollables();
+          // Scroll the page
+          let result = await ContentScript.scrollPage();
+
+          // Mark scrollables like carousels and scroll them to load lazy images
+          if (result !== 'stopped') {
+            await ContentScript.markScrollables();
+            result = await ContentScript.scrollScrollables();
+
+            if (ContentScript.lazyImgs.length) {
               if (result !== 'stopped') {
                 await ContentScript.waitForLazies();
               }

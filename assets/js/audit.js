@@ -64,17 +64,44 @@ class Audit {
           // If the <img> is inside <picture> and has various densities/DPRs/dimensions,
           // it needs to replace the src with currentSrc in order not to load the other images that are for the other DPRs.
           // For example, when the loaded image is 300x300 with <source> but the <img> has the src of image 100x100.
+          const tempNaturalWidth = img.naturalWidth;
+          const tempNaturalHeight = img.naturalHeight;
           if (img.currentSrc != '' && img.src != img.currentSrc) {
-            const tempNaturalWidth = img.naturalWidth;
-            const tempNaturalHeight = img.naturalHeight;
-            img.src = img.currentSrc;
-            if (img.naturalWidth > 1 && img.naturalHeight > 1) {
-              img.dataset.naturalHeight = img.naturalHeight;
-              img.dataset.naturalWidth = img.naturalWidth;
+            let imgLoaded = false;
+            if (img.src.trim() === '') {
+              img.onload = () => {
+                imgLoaded = true;
+              };
+              img.onerror = () => {
+                imgLoaded = true;
+              };
+
+              const tempCurrentSrc = img.currentSrc;
+
+              // Remove srcset in order to have correct naturalWidth and naturalHeight in some circumstances,
+              // like when there is no src attribute
+              img.dataset.srcset = '';
+              if (img.srcset.trim() !== '') {
+                img.dataset.srcset = img.srcset;
+              }
+              img.srcset = '';
+
+              img.src = tempCurrentSrc;
             } else {
-              img.dataset.naturalHeight = tempNaturalHeight;
-              img.dataset.naturalWidth = tempNaturalWidth;
+              imgLoaded = true;
             }
+
+            while (imgLoaded === false) {
+              await Common.wait(1000);
+            }
+          }
+
+          if (img.naturalWidth > 1 && img.naturalHeight > 1) {
+            img.dataset.naturalHeight = img.naturalHeight;
+            img.dataset.naturalWidth = img.naturalWidth;
+          } else {
+            img.dataset.naturalHeight = tempNaturalHeight;
+            img.dataset.naturalWidth = tempNaturalWidth;
           }
 
           if (
@@ -462,7 +489,7 @@ class Audit {
 
           // <img srcset="...">
           if (srcsets == null) {
-            srcsets = img.getAttribute('srcset');
+            srcsets = img.dataset.srcset;
           }
 
           if (srcsets) {
@@ -635,8 +662,18 @@ class Audit {
 
         const hasMultipleSpace = async (el) => {
           return new Promise(resolve => {
-            if (el.hasAttribute('srcset')) {
-              const srcset = el.getAttribute('srcset');
+            let srcset = '';
+            if (el.dataset.srcset.trim()) {
+              srcset = el.dataset.srcset;
+            }
+
+            if (!srcset) {
+              if (el.hasAttribute('srcset')) {
+                srcset = el.getAttribute('srcset');
+              }
+            }
+
+            if (srcset) {
               const srcsetSplit = srcset.split(',');
               for (const srcset of srcsetSplit) {
                 if (/(.*\s){2,}/.test(srcset.trim())) {
