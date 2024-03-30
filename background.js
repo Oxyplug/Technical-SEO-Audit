@@ -1,5 +1,4 @@
 class Background {
-
   /**
    * @param details
    * @returns {Promise<void>}

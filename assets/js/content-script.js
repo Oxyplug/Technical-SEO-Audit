@@ -819,7 +819,6 @@ class ContentScript {
                 await ContentScript.waitForLazies();
               }
             }
-
           }
         }
 
