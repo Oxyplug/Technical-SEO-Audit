@@ -405,6 +405,66 @@ nav > a {
   opacity: 0.5;
 }
 
+#audit-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin: 8px 0;
+}
+
+.sum-grade {
+  font-weight: 700;
+  font-size: 0.95em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  color: var(--oxyplug-white-color);
+}
+
+.sum-grade.perfect,
+.sum-grade.good {
+  background-color: var(--oxyplug-green);
+}
+
+.sum-grade.needs-work {
+  background-color: var(--oxyplug-yellow);
+  color: var(--oxyplug-black);
+}
+
+.sum-grade.poor {
+  background-color: var(--oxyplug-red);
+}
+
+.sum-chip {
+  font-size: 0.85em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background-color: var(--oxyplug-lightest-gray);
+  color: var(--oxyplug-darker-gray);
+}
+
+.sum-chip.critical {
+  color: var(--oxyplug-red);
+}
+
+.sum-chip.warning {
+  color: var(--oxyplug-black);
+}
+
+.sum-chip.info {
+  color: var(--oxyplug-aqua);
+}
+
+.issue-thumb {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 3px;
+  margin-right: 6px;
+  vertical-align: middle;
+  background-color: var(--oxyplug-lightest-gray);
+}
+
 .info-box {
   background: var(--oxyplug-lightest-gray);
   border: 1px solid var(--oxyplug-lighter-gray);

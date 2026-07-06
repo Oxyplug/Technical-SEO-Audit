@@ -35,7 +35,8 @@ class ContentScript {
             } else if (request.messages) {
               await ContentScript.postMessage({
                 showIssues: request.messages,
-                issueTypes: request.issueTypes
+                issueTypes: request.issueTypes,
+                url: request.url
               });
             } else if (request.newXColor) {
               await ContentScript.setXColor(request);
