@@ -62,6 +62,12 @@ class Popup {
         Popup.stop = await Common.getElement('#stop');
         Popup.purgeReload = await Common.getElement('#purge-reload');
 
+        // Export buttons
+        Popup.exportHtml = await Common.getElement('#export-html');
+        Popup.exportCsv = await Common.getElement('#export-csv');
+        Popup.copySummary = await Common.getElement('#copy-summary');
+        await Popup.wireExport();
+
         // Is it processing?
         const isProcessing = Boolean(await Common.getLocalStorage('is_processing'));
         if (isProcessing) {
@@ -276,6 +282,7 @@ class Popup {
             await Popup.progress(0);
             await Popup.showLogs();
             await Popup.resetList();
+            Popup.setExportEnabled(false);
             await Common.setLocalStorage({is_processing: true, stopped: false});
             await Popup.processingState(true);
             await Popup.postMessage({start: true});
@@ -328,6 +335,7 @@ class Popup {
                       await Popup.renameStart('Restart');
                       Popup.stop.disabled = false;
                       Popup.purgeReload.disabled = false;
+                      Popup.setExportEnabled(true);
                       await Popup.highlightActiveUrl();
                       await Popup.highlightActiveFilter();
                       const log = 'Auditing finished.';
@@ -500,6 +508,7 @@ class Popup {
           // Check if the current issues is related to the current page
           if (Popup.issues.audit.page === Popup.currentHref) {
             Popup.purgeReload.disabled = false;
+            Popup.setExportEnabled(true);
             await Popup.renameStart('Restart');
             await Popup.loadList(Popup.issues);
             await Popup.loadLogs();
@@ -522,6 +531,52 @@ class Popup {
   static async postMessage(data) {
     Popup.port = chrome.tabs.connect(Popup.currentTab.id, {name: 'oxyplug-tech-seo-audit'});
     Popup.port.postMessage(data);
+  }
+
+  /**
+   * Enable/disable the export buttons.
+   * @param enabled
+   * @returns {void}
+   */
+  static setExportEnabled(enabled) {
+    [Popup.exportHtml, Popup.exportCsv, Popup.copySummary].forEach((button) => {
+      if (button) button.disabled = !enabled;
+    });
+  }
+
+  /**
+   * Wire the Export HTML / Export CSV / Copy Summary buttons.
+   * @returns {Promise<void>}
+   */
+  static async wireExport() {
+    if (Popup.exportHtml) {
+      Popup.exportHtml.addEventListener('click', async () => {
+        if (!Report.hasData(Popup.issues)) return;
+        const summary = await Report.summarize(Popup.issues);
+        Report.download(Report.filename(summary, 'html'), Report.toHTML(Popup.issues, summary), 'text/html');
+      });
+    }
+
+    if (Popup.exportCsv) {
+      Popup.exportCsv.addEventListener('click', async () => {
+        if (!Report.hasData(Popup.issues)) return;
+        const summary = await Report.summarize(Popup.issues);
+        Report.download(Report.filename(summary, 'csv'), Report.toCSV(Popup.issues), 'text/csv');
+      });
+    }
+
+    if (Popup.copySummary) {
+      Popup.copySummary.addEventListener('click', async () => {
+        if (!Report.hasData(Popup.issues)) return;
+        const summary = await Report.summarize(Popup.issues);
+        const ok = await Report.copy(Report.toText(Popup.issues, summary));
+        const original = Popup.copySummary.innerText;
+        Popup.copySummary.innerText = ok ? 'Copied!' : 'Failed';
+        setTimeout(() => {
+          Popup.copySummary.innerText = original;
+        }, 1500);
+      });
+    }
   }
 
   /**

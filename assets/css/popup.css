@@ -390,6 +390,21 @@ nav > a {
   font-weight: 500;
 }
 
+#export-buttons {
+  display: flex;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+#export-buttons button {
+  flex-grow: 1;
+  background-color: var(--oxyplug-green);
+}
+
+#export-buttons button:disabled {
+  opacity: 0.5;
+}
+
 .info-box {
   background: var(--oxyplug-lightest-gray);
   border: 1px solid var(--oxyplug-lighter-gray);

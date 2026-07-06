@@ -17,7 +17,7 @@
     <button class="button oxyplug-icon-exclude" data-target="exclusions"></button>
     <button class="button oxyplug-icon-history" data-target="history"></button>
     <button class="button oxyplug-icon-info" data-target="learn"></button>
-    <a href="https://oxyplug.com" target="_blank">OxyPlug.com</a>
+    <a href="https://www.oxyplug.com" target="_blank">OxyPlug.com</a>
   </nav>
 
   <div id="content">
@@ -27,6 +27,11 @@
         <button id="start" class="button button-primary">Start</button>
         <button id="stop" class="button button-danger" disabled>Cancel</button>
         <button id="purge-reload" class="button button-info" disabled>Purge & Reload</button>
+      </div>
+      <div id="export-buttons">
+        <button id="export-html" class="button button-small" disabled>Export HTML</button>
+        <button id="export-csv" class="button button-small" disabled>Export CSV</button>
+        <button id="copy-summary" class="button button-small" disabled>Copy Summary</button>
       </div>
       <div id="oxyplug-issue-list" class="oxyplug-list">
         <div id="oxyplug-is-processing">
@@ -174,6 +179,7 @@
 </div>
 
 <script src="assets/js/common.js"></script>
+<script src="assets/js/report.js"></script>
 <script src="assets/js/popup.js"></script>
 
 </body>
