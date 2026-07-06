@@ -12,31 +12,31 @@ Oxyplug - Image Audit
 Audit your page images for SEO & performance: alt text, dimensions, file size, next-gen formats, lazy loading and LCP.
 
 **Detailed Description** [REQUIRED]
-Oxyplug - Image Audit scans every image on the page you are viewing and flags the issues that hurt your SEO and page-speed scores — then marks each problem image directly on the page so you can see exactly what needs fixing.
+🚀 Oxyplug - Image Audit scans every image on the page you are viewing and flags the issues that hurt your SEO and page-speed scores, then marks each problem image directly on the page so you can see exactly what needs fixing. 🛠️
 
-What it checks:
-- Images that fail to load (404 or any non-200 status)
-- Missing or empty src attributes
-- Missing, empty, or overly long alt text (length limit is configurable)
-- Missing width or height attributes
-- Rendered size that differs from the image's real dimensions
-- Rendered aspect-ratio that differs from the original aspect-ratio
-- File sizes larger than a limit you set
-- Missing 2x/3x versions for high-DPR (retina) screens
-- Missing next-gen formats (WebP, AVIF)
-- Incorrect lazy-loading (below-the-fold images that aren't lazy)
-- Which image is the Largest Contentful Paint (LCP) image
-- LCP images that aren't loaded eagerly, preloaded, or decoded synchronously
+🔍 What it checks:
+❌ Broken Images: Images that fail to load (404 or any non-200 status).
+📄 Missing Source: Missing or empty src attributes.
+🏷️ Alt Text Issues: Missing, empty, or overly long alt text (length limit is configurable).
+📐 Layout Shifts: Missing width or height attributes.
+📏 Incorrect Sizing: Rendered size that differs from the image's real dimensions.
+🎞️ Distortion: Rendered aspect-ratio that differs from the original aspect-ratio.
+💾 Heavy Files: File sizes larger than a limit you set.
+🖥️ Retina Compatibility: Missing 2x/3x versions for high-DPR (retina) screens.
+⚡ Modern Formats: Missing next-gen formats (WebP, AVIF).
+💤 Faulty Lazy-Loading: Below-the-fold images that aren't lazy-loaded.
+🎯 LCP Identification: Pinpoints exactly which image is the Largest Contentful Paint (LCP) image.
+🏎️ Core Web Vitals: Flags LCP images that aren't loaded eagerly, preloaded, or decoded synchronously.
 
-How to use it:
-1. Navigate to the page you want to audit.
-2. Click the Oxyplug - Image Audit icon.
-3. Press Start. The extension scrolls the page to trigger lazy images, then lists every issue it finds.
-4. Click any issue to jump to that image on the page. Use the filter tabs to focus on one issue type, exclude images you don't care about, or review your last 10 audits in History.
-5. Save or share your findings: export a full HTML report, export a CSV for spreadsheets, or copy a text summary. Every check also has a built-in definition and fix in the Help tab.
+🕹️ How to use it:
+🌐 Navigate to the page you want to audit.
+🧩 Click the Oxyplug - Image Audit icon.
+▶️ Press Start. The extension automatically scrolls the page to trigger lazy images, then lists every issue it finds.
+🎯 Click any issue to jump directly to that image on the page. Use the filter tabs to focus on one issue type, exclude images you don't care about, or review your last 10 audits in History ⏳.
+📊 Save or share your findings: Export a full HTML report, export a CSV for spreadsheets, or copy a text summary. Every check also has a built-in definition and fix in the Help tab 💡.
 
-Privacy:
-Your audit results and settings stay on your device. The extension does not collect, sell, or transmit your data to any server, and it has no analytics or tracking.
+🔒 Privacy First
+Your audit results and settings stay on your device. The extension does not collect, sell, or transmit your data to any server, and contains absolutely zero analytics or tracking.
 
 Support:
 Questions or feedback? Visit https://www.oxyplug.com/contact-us/
@@ -75,8 +75,8 @@ English
 | Permission | Type | Justification |
 |------------|------|---------------|
 | storage | permissions | Saves the user's settings (file-size/alt-length limits, colors, exclusions) and the last 10 audit results locally on the device so they persist between sessions. No data leaves the device. |
-| webRequest | permissions | Reads the `Content-Length` response header of images as they load on the active tab in order to report each image's file size. Used only for observation — no requests are blocked or modified. |
-| host_permissions: http://*/* and https://*/* | host_permissions | The extension audits whichever page the user chooses to run it on, which can be any website. The content script must run on that page to inspect its `<img>` elements, scroll to trigger lazy-loaded images, and overlay issue markers. |
+| webRequest | permissions | Observes image responses (`onHeadersReceived`) to read the `Content-Length` header and report each image's file size — a core audit metric. This must work for cross-origin/CDN images, which the Performance API cannot measure (it returns 0 without a Timing-Allow-Origin header), so broad host access is required. Observation only: no requests are blocked, redirected, or modified, and nothing is sent off the device. |
+| host_permissions: http://*/* and https://*/* | host_permissions | Oxyplug - Image Audit is a technical-SEO tool that audits the images on whatever page the user chooses — which can be any website — so it cannot enumerate a fixed list of hosts. The content script needs host access to inspect the page's `<img>` elements, scroll to trigger lazy-loaded images, and overlay issue markers; the same broad access is what lets `webRequest` read cross-origin image file sizes. The extension only acts when the user explicitly clicks "Start" in the popup, and it never collects or transmits any data. |
 
 <!-- REVIEW RISK: this permission set puts the listing in the strictest review tier.
      If you refactor to activeTab + chrome.scripting + Performance API for file sizes,
@@ -149,6 +149,23 @@ https://www.oxyplug.com/
   the strictest review tier. Justifications above must be pasted into the dashboard verbatim.
 - `webRequest` is used in observation mode only (`onHeadersReceived`, no blocking) — MV3-compliant.
 - Content script runs on all http/https pages to allow auditing any site the user selects.
+
+### Broad Host Permissions — reviewer note (expected in-depth review)
+The Chrome Web Store flags this extension for an in-depth review because of the broad host
+permissions. This is expected and the access is intrinsic to the product, not incidental:
+
+- **Purpose:** it audits the images on *whatever page the user chooses*, which can be any
+  website — there is no fixed set of hosts to enumerate.
+- **`activeTab` is not sufficient:** the file-size audit relies on `webRequest`
+  (`onHeadersReceived`) to read `Content-Length`, and `webRequest` requires broad host
+  permissions. The Performance API cannot replace it because it reports 0 bytes for
+  cross-origin (CDN) images without a `Timing-Allow-Origin` header.
+- **Least privilege in practice:** the extension acts only on an explicit user gesture
+  ("Start"), performs read-only observation (no requests blocked/redirected/modified), stores
+  everything locally, and transmits nothing off the device.
+
+If the reviewer requires it, the file-size feature could be dropped to move to `activeTab`, but
+that would remove a core, user-visible audit metric.
 
 ### Rejection History
 <!-- None yet. -->
