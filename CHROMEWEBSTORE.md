@@ -33,6 +33,7 @@ How to use it:
 2. Click the Oxyplug - Image Audit icon.
 3. Press Start. The extension scrolls the page to trigger lazy images, then lists every issue it finds.
 4. Click any issue to jump to that image on the page. Use the filter tabs to focus on one issue type, exclude images you don't care about, or review your last 10 audits in History.
+5. Save or share your findings: export a full HTML report, export a CSV for spreadsheets, or copy a text summary. Every check also has a built-in definition and fix in the Help tab.
 
 Privacy:
 Your audit results and settings stay on your device. The extension does not collect, sell, or transmit your data to any server, and it has no analytics or tracking.
@@ -108,7 +109,9 @@ documentation page in a new tab.
 ## Privacy Policy
 
 **Privacy Policy URL** [REQUIRED]
-https://github.com/Oxyplug/Oxyplug-Image-Audit/blob/main/PRIVACY_POLICY.md
+https://www.oxyplug.com/docs/oxy-image-audit/privacy/
+<!-- Confirm this page is published and live before submitting. Fallback (already live):
+     https://github.com/Oxyplug/Oxyplug-Image-Audit/blob/main/PRIVACY_POLICY.md -->
 
 ## Distribution
 
@@ -133,7 +136,7 @@ https://www.oxyplug.com/
 
 | Version | Date | Changes | Status |
 |---------|------|---------|--------|
-| 1.0.0 | 2026-07-06 | Initial Chrome Web Store submission. | Draft |
+| 1.0.0 | 2026-07-06 | Initial Chrome Web Store submission. Includes on-page issue markers, filterable results, exportable HTML/CSV reports, copy-summary, a bundled Help page, exclusions, and audit history. | Draft |
 
 ## Review Notes
 

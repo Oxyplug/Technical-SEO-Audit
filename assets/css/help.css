@@ -1,0 +1,125 @@
+html {
+  background-color: var(--oxyplug-lightest-gray);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: Montserrat, system-ui, -apple-system, sans-serif;
+  font-weight: 500;
+  color: var(--oxyplug-darkest-gray);
+  line-height: 1.5;
+}
+
+.help-wrap {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 32px 20px 48px;
+}
+
+.help-header {
+  background-color: var(--oxyplug-white-color);
+  border-radius: 8px;
+  padding: 24px 28px;
+  box-shadow: 0 1px 4px var(--oxyplug-alpha-black-3);
+  margin-bottom: 20px;
+}
+
+.help-header h1 {
+  margin: 0 0 6px;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--oxyplug-blue);
+}
+
+.help-header p {
+  margin: 0;
+  color: var(--oxyplug-darker-gray);
+}
+
+.help-group {
+  display: inline-block;
+  margin: 24px 0 10px;
+  padding: 4px 16px;
+  border-radius: 999px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--oxyplug-white-color);
+}
+
+.help-group.critical {
+  background-color: var(--oxyplug-red);
+}
+
+.help-group.warning {
+  background-color: var(--oxyplug-yellow);
+  color: var(--oxyplug-black);
+}
+
+.help-group.info {
+  background-color: var(--oxyplug-aqua);
+}
+
+.help-item {
+  background-color: var(--oxyplug-white-color);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px var(--oxyplug-alpha-black-3);
+  border-left: 4px solid var(--oxyplug-lighter-gray);
+}
+
+.help-item h3 {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.help-item .def {
+  margin: 0 0 8px;
+  color: var(--oxyplug-darkest-gray);
+}
+
+.help-item .fix {
+  margin: 0;
+  color: var(--oxyplug-darker-gray);
+}
+
+.help-item .fix b {
+  color: var(--oxyplug-green);
+}
+
+.help-item code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  background-color: var(--oxyplug-lightest-gray);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+section:nth-of-type(1) .help-item {
+  border-left-color: var(--oxyplug-red);
+}
+
+section:nth-of-type(2) .help-item {
+  border-left-color: var(--oxyplug-yellow);
+}
+
+section:nth-of-type(3) .help-item {
+  border-left-color: var(--oxyplug-aqua);
+}
+
+.help-footer {
+  margin-top: 28px;
+  text-align: center;
+}
+
+.help-footer a {
+  color: var(--oxyplug-blue);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.help-footer a:hover {
+  text-decoration: underline;
+}

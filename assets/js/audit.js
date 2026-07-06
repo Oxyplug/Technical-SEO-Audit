@@ -964,7 +964,7 @@ class Audit {
 
               const messages = Audit.issues[className] ? Audit.issues[className].messages : [];
               const issueTypes = Audit.issues[className] ? Audit.issues[className].issueTypes : [];
-              await Common.showIssues(messages, issueTypes);
+              await Common.showIssues(messages, issueTypes, 'content', img.src);
             });
 
             // Put spanX after img

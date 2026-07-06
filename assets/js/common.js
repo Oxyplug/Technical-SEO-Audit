@@ -59,7 +59,7 @@ class Common {
    * @param caller
    * @returns {Promise<void>}
    */
-  static async showIssues(messages, issueTypes, caller = 'content') {
+  static async showIssues(messages, issueTypes, caller = 'content', url = null) {
     const messageId = 'oxyplug-modal-message';
     const sectionId = 'oxyplug-tech-seo-section';
     let shadowWrap = await Common.getElement(`#${sectionId}`);
@@ -90,8 +90,26 @@ class Common {
     }
 
     const messageModal = shadowWrap.shadowRoot.getElementById(messageId);
-    const ul = messageModal.querySelector('.oxyplug-modal-content ul');
+    const content = messageModal.querySelector('.oxyplug-modal-content');
+    const ul = content.querySelector('ul');
     ul.innerHTML = '';
+
+    // Show a thumbnail of the audited image at the top of the report
+    let thumb = content.querySelector('.oxyplug-modal-thumb');
+    if (url && /^https?:|^data:image/i.test(url)) {
+      if (!thumb) {
+        thumb = document.createElement('img');
+        thumb.className = 'oxyplug-modal-thumb';
+        content.insertBefore(thumb, ul);
+      }
+      thumb.style.display = '';
+      thumb.onerror = () => {
+        thumb.style.display = 'none';
+      };
+      thumb.src = url;
+    } else if (thumb) {
+      thumb.style.display = 'none';
+    }
     for (const message of messages) {
       const index = messages.indexOf(message);
       const li = document.createElement('li');
@@ -128,7 +146,7 @@ class Common {
           await Common.setLearnMores(host);
           let utmLink = Common.learnMores['utm-link'];
           const [[firstKey]] = Object.entries(Common.learnMores['issues'][id]);
-          const href = `${utmLink}${firstKey}#${firstKey}`;
+          const href = `${utmLink}${firstKey}`;
           const learnMore = `<a class="oxyplug-icon-info" href="${href}" target="_blank"></a>`;
           li.append(span, message);
           li.insertAdjacentHTML('beforeend', learnMore);
@@ -289,7 +307,7 @@ class Common {
    */
   static async setLearnMores(host) {
     if (!Common.hostLearnMores || !Common.hostLearnMores[host]) {
-      const utmLink = `https://www.oxyplug.com/docs/oxy-seo-audit/audit-definitions/?utm_source=${host}&utm_medium=chrome-extension&utm_campaign=`;
+      const utmLink = `https://www.oxyplug.com/docs/oxy-image-audit/?utm_source=${host}&utm_medium=chrome-extension&utm_campaign=`;
       Common.learnMores = Common.hostLearnMores[host] = {
         'utm-link': utmLink,
         'issues': {

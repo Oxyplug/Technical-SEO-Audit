@@ -345,7 +345,7 @@ class Popup {
                       // Fill issues history
                       await Popup.loadIssuesHistoryList(request.allIssues);
                     } else if (request.showIssues) {
-                      await Common.showIssues(request.showIssues, request.issueTypes, 'popup');
+                      await Common.showIssues(request.showIssues, request.issueTypes, 'popup', request.url);
                     }
                   }
 
@@ -529,8 +529,28 @@ class Popup {
    * @returns {Promise<void>}
    */
   static async postMessage(data) {
-    Popup.port = chrome.tabs.connect(Popup.currentTab.id, {name: 'oxyplug-tech-seo-audit'});
-    Popup.port.postMessage(data);
+    try {
+      Popup.port = chrome.tabs.connect(Popup.currentTab.id, {name: 'oxyplug-tech-seo-audit'});
+      Popup.port.onDisconnect.addListener(async () => {
+        // A disconnect with lastError set means the content script isn't in this
+        // tab (e.g. the page was already open before the extension loaded).
+        // Checking lastError also clears the "Unchecked runtime.lastError" warning.
+        if (chrome.runtime.lastError) {
+          try {
+            await Common.setLocalStorage({is_processing: false, stopped: true, processingOn: null});
+            await Popup.processingState(false);
+            await Popup.addToLogsList('Could not reach this page. Please reload it (F5) and try again.');
+            const logsBox = await Common.getElement('#progress-logs');
+            if (logsBox) logsBox.style.display = 'block';
+          } catch (error) {
+            console.log(error);
+          }
+        }
+      });
+      Popup.port.postMessage(data);
+    } catch (error) {
+      console.log(error);
+    }
   }
 
   /**
@@ -700,8 +720,39 @@ class Popup {
         issueList.innerHTML = '';
       }
 
+      await Popup.renderSummary(null);
+
       resolve();
     });
+  }
+
+  /**
+   * Render the at-a-glance audit summary header inside the popup.
+   * @param issues
+   * @returns {Promise<void>}
+   */
+  static async renderSummary(issues) {
+    const el = await Common.getElement('#audit-summary');
+    if (!el) return;
+
+    if (!issues || !issues.audit) {
+      el.classList.add('d-none');
+      el.innerHTML = '';
+      return;
+    }
+
+    const summary = await Report.summarize(issues);
+    const gradeClass = summary.grade.toLowerCase().replace(/\s+/g, '-');
+    const chip = (value, label, cls = '') => `<span class="sum-chip ${cls}"><b>${value}</b> ${label}</span>`;
+
+    const chips = [chip(summary.imagesWithIssues, 'imgs')];
+    if (summary.critical) chips.push(chip(summary.critical, 'critical', 'critical'));
+    if (summary.warning) chips.push(chip(summary.warning, 'warning', 'warning'));
+    if (summary.info) chips.push(chip(summary.info, 'info', 'info'));
+    if (summary.weightKB) chips.push(chip(summary.weightKB, 'KB'));
+
+    el.innerHTML = `<span class="sum-grade ${gradeClass}">${summary.grade}</span>${chips.join('')}`;
+    el.classList.remove('d-none');
   }
 
   /**
@@ -712,14 +763,24 @@ class Popup {
   static async loadList(issues) {
     return new Promise(async (resolve, reject) => {
       try {
+        // Render the at-a-glance summary header
+        await Popup.renderSummary(issues);
+
         const auditPage = issues.audit.page;
         const issuesCount = issues.count;
         issues = issues.issues;
         const issuesArray = Object.keys(issues);
 
         if (issuesArray.length) {
-          // Sort
-          issues = issuesArray.sort().reduce((obj, key) => {
+          // Sort by severity (critical first), then by key for stable order
+          const severityRank = {critical: 0, warning: 1, info: 2};
+          const rankOf = (key) => (issues[key].issueTypes || []).reduce(
+            (min, type) => Math.min(min, severityRank[Report.severityOf(type)]), 3
+          );
+          issues = issuesArray.sort((a, b) => {
+            const diff = rankOf(a) - rankOf(b);
+            return diff !== 0 ? diff : a.localeCompare(b);
+          }).reduce((obj, key) => {
             obj[key] = issues[key];
             return obj;
           }, {});
@@ -766,9 +827,20 @@ class Popup {
 
               Popup.postMessage({
                 messages: details.messages,
-                issueTypes: details.issueTypes
+                issueTypes: details.issueTypes,
+                url: details.url
               });
             };
+
+            // Thumbnail of the image (hidden if it fails to load)
+            if (/^https?:|^data:image/i.test(details.url)) {
+              const thumb = document.createElement('img');
+              thumb.className = 'issue-thumb';
+              thumb.src = details.url;
+              thumb.loading = 'lazy';
+              thumb.addEventListener('error', () => thumb.remove());
+              li.append(thumb);
+            }
 
             const span = document.createElement('span');
             span.innerText = decodeURI(srcExcerpt);
@@ -1152,26 +1224,55 @@ class Popup {
    */
   static async loadLearnMore() {
     await Common.setLearnMores(Popup.currentHost);
-    const learnMoreList = await Common.getElement('#learn ul');
-    const utmLink = Common.learnMores['utm-link'];
-    for (const [_, messageObject] of Object.entries(Common.learnMores['issues'])) {
-      for (const [key, message] of Object.entries(messageObject)) {
+    const learnEl = await Common.getElement('#learn');
+    const issues = Common.learnMores['issues'];
 
-        // li
-        const li = document.createElement('li');
-        li.innerText = message + ' ';
+    // Clear any previously rendered summary (keep the heading)
+    learnEl.querySelectorAll(':scope > :not(h2)').forEach((el) => el.remove());
 
-        // a
-        const a = document.createElement('a');
-        a.href = `${utmLink}${key}#${key}`;
-        a.target = '_blank';
-        a.innerText = 'Learn More';
+    // Intro
+    const intro = document.createElement('p');
+    intro.className = 'learn-intro';
+    intro.innerText = 'Oxyplug checks each image on the page for these SEO & performance issues, grouped by priority:';
+    learnEl.append(intro);
 
-        // append
-        li.append(a);
-        learnMoreList.append(li);
-      }
+    // Group the issue types by severity
+    const groups = {critical: [], warning: [], info: []};
+    for (const issueType of Object.keys(issues)) {
+      groups[Report.severityOf(issueType)].push(issueType);
     }
+
+    const groupLabels = {critical: 'Critical', warning: 'Warning', info: 'Info'};
+    for (const severity of ['critical', 'warning', 'info']) {
+      if (!groups[severity].length) continue;
+
+      const heading = document.createElement('h3');
+      heading.className = `learn-group ${severity}`;
+      heading.innerText = groupLabels[severity];
+      learnEl.append(heading);
+
+      const ul = document.createElement('ul');
+      ul.className = 'learn-list';
+      for (const issueType of groups[severity]) {
+        const li = document.createElement('li');
+        const strong = document.createElement('strong');
+        strong.innerText = Report.labelOf(issueType);
+        const definition = Object.values(issues[issueType]).join(' ');
+        li.append(strong, document.createTextNode(' — ' + definition));
+        ul.append(li);
+      }
+      learnEl.append(ul);
+    }
+
+    // Single link to the full documentation
+    const moreP = document.createElement('p');
+    moreP.className = 'learn-more-link';
+    const a = document.createElement('a');
+    a.href = chrome.runtime.getURL('help.html');
+    a.target = '_blank';
+    a.innerText = 'See full definitions & fixes →';
+    moreP.append(a);
+    learnEl.append(moreP);
   }
 
   /**

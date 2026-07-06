@@ -152,6 +152,16 @@
   margin-right: 24px;
 }
 
+.oxyplug-modal-thumb {
+  display: block;
+  max-width: 120px;
+  max-height: 120px;
+  object-fit: contain;
+  border-radius: 3px;
+  margin: 0 0 10px;
+  background-color: var(--oxyplug-lightest-gray);
+}
+
 .oxyplug-modal-content ul {
   padding: 0;
   margin: 0;

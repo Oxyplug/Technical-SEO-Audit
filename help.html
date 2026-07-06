@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Oxyplug — Image Audit · Definitions &amp; Fixes</title>
+  <link rel="stylesheet" href="assets/css/common.css">
+  <link rel="stylesheet" href="assets/css/help.css">
+</head>
+<body>
+<div class="help-wrap">
+  <header class="help-header">
+    <h1>Image Audit — Definitions &amp; Fixes</h1>
+    <p>What each check means and how to fix it. Issues are grouped by priority.</p>
+  </header>
+
+  <main>
+    <section>
+      <h2 class="help-group critical">Critical</h2>
+
+      <article class="help-item">
+        <h3>Load fail</h3>
+        <p class="def">The image fails to load, returning a non-200 HTTP status (for example 404 Not Found or 403 Forbidden). A broken image hurts both users and crawlers.</p>
+        <p class="fix"><b>Fix:</b> Correct the <code>src</code> URL or restore the missing file. Also check that paths inside <code>srcset</code> contain no spaces, which can break loading.</p>
+      </article>
+
+      <article class="help-item">
+        <h3>Missing / empty src</h3>
+        <p class="def">The <code>&lt;img&gt;</code> has no <code>src</code> attribute, or the <code>src</code> is empty, so no image is shown.</p>
+        <p class="fix"><b>Fix:</b> Give every content image a valid <code>src</code>. If the image is loaded via a framework, make sure the value is populated before render.</p>
+      </article>
+
+      <article class="help-item">
+        <h3>Alt text</h3>
+        <p class="def">The <code>alt</code> attribute is missing, empty, or longer than your configured limit. Alt text describes the image for screen readers and search engines.</p>
+        <p class="fix"><b>Fix:</b> Add concise, descriptive alt text (keep it under your max, e.g. ~125 characters). For purely decorative images, use an empty <code>alt=""</code> so assistive tech skips them.</p>
+      </article>
+
+      <article class="help-item">
+        <h3>Missing width</h3>
+        <p class="def">The image has no <code>width</code> attribute, so the browser can't reserve space before it loads.</p>
+        <p class="fix"><b>Fix:</b> Set an explicit <code>width</code> (together with <code>height</code>). This reserves layout space and prevents Cumulative Layout Shift (CLS).</p>
+      </article>
+
+      <article class="help-item">
+        <h3>Missing height</h3>
+        <p class="def">The image has no <code>height</code> attribute, so the browser can't reserve space before it loads.</p>
+        <p class="fix"><b>Fix:</b> Set an explicit <code>height</code> (together with <code>width</code>), or define an <code>aspect-ratio</code> in CSS, to avoid layout shift.</p>
+      </article>
+
+      <article class="help-item">
+        <h3>Rendered size</h3>
+        <p class="def">The image's displayed (rendered) dimensions differ from its real (natural) dimensions — you may be shipping far more pixels than are shown.</p>
+        <p class="fix"><b>Fix:</b> Export the image close to its displayed size, and use a responsive <code>srcset</code> with <code>sizes</code> so each device downloads an appropriately sized file.</p>
+      </article>
+
+      <article class="help-item">
+        <h3>Aspect ratio</h3>
+        <p class="def">The rendered aspect ratio differs from the source image's aspect ratio, which stretches or squashes the image.</p>
+        <p class="fix"><b>Fix:</b> Keep the displayed width:height matching the source, or use <code>object-fit: cover</code> / <code>contain</code> to fit without distortion.</p>
+      </article>
+
+      <article class="help-item">
+        <h3>File size</h3>
+        <p class="def">The image file is larger than your configured limit, slowing the page down.</p>
+        <p class="fix"><b>Fix:</b> Compress the image, resize it to the dimensions actually used, and prefer next-gen formats (WebP/AVIF) which are much smaller at the same quality.</p>
+      </article>
+
+      <article class="help-item">
+        <h3>No 2x</h3>
+        <p class="def">No high-resolution (2x/3x) variant is provided, so the image can look soft on retina / high-DPR screens.</p>
+        <p class="fix"><b>Fix:</b> Provide a <code>srcset</code> with density descriptors, e.g. <code>image.jpg 1x, image@2x.jpg 2x</code>.</p>
+      </article>
+    </section>
+
+    <section>
+      <h2 class="help-group warning">Warning</h2>
+
+      <article class="help-item">
+        <h3>Next-gen format</h3>
+        <p class="def">The image is not served in a modern format (WebP or AVIF), which are significantly smaller than JPEG/PNG.</p>
+        <p class="fix"><b>Fix:</b> Serve WebP or AVIF, using a <code>&lt;picture&gt;</code> element with fallbacks, or an image CDN that negotiates the format automatically.</p>
+      </article>
+
+      <article class="help-item">
+        <h3>Lazy loading</h3>
+        <p class="def">A below-the-fold image is not lazy-loaded, so it competes for bandwidth with content the user can already see.</p>
+        <p class="fix"><b>Fix:</b> Add <code>loading="lazy"</code> to off-screen images. Do <em>not</em> lazy-load the LCP / above-the-fold hero image — that one should load eagerly.</p>
+      </article>
+
+      <article class="help-item">
+        <h3>LCP preload</h3>
+        <p class="def">The Largest Contentful Paint image is not preloaded, so the browser discovers it late and the page feels slower.</p>
+        <p class="fix"><b>Fix:</b> Add <code>&lt;link rel="preload" as="image" href="…"&gt;</code> (or <code>imagesrcset</code>/<code>imagesizes</code> for responsive images) for the LCP image in the document head.</p>
+      </article>
+    </section>
+
+    <section>
+      <h2 class="help-group info">Info</h2>
+
+      <article class="help-item">
+        <h3>LCP image</h3>
+        <p class="def">Identifies the Largest Contentful Paint image — the largest image visible above the fold. It is usually the most important image for perceived load speed.</p>
+        <p class="fix"><b>Tip:</b> Optimize this image first: load it eagerly, preload it, serve it in a next-gen format, and size it correctly.</p>
+      </article>
+
+      <article class="help-item">
+        <h3>Decoding</h3>
+        <p class="def">The LCP image does not use <code>decoding="sync"</code>. For the main hero image, synchronous decoding can help it paint sooner.</p>
+        <p class="fix"><b>Fix:</b> Set <code>decoding="sync"</code> and <code>loading="eager"</code> on the LCP image so the browser prioritizes it.</p>
+      </article>
+    </section>
+  </main>
+
+  <footer class="help-footer">
+    <a href="https://www.oxyplug.com/docs/oxy-image-audit/?utm_source=extension&amp;utm_medium=chrome-extension&amp;utm_campaign=help" target="_blank" rel="noopener">Read the full guide on oxyplug.com &rarr;</a>
+  </footer>
+</div>
+</body>
+</html>
