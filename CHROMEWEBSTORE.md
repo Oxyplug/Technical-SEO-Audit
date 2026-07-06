@@ -55,9 +55,11 @@ English
 | Asset | Dimensions | Status | Filename |
 |-------|-----------|--------|----------|
 | Store Icon [REQUIRED] | 128×128 PNG | ✅ Ready | assets/icons/128.png |
-| Screenshot 1 [REQUIRED] | 1280×800 or 640×400 | ⬜ Not created | |
-| Screenshot 2 [RECOMMENDED] | 1280×800 or 640×400 | ⬜ Not created | |
-| Screenshot 3 [RECOMMENDED] | 1280×800 or 640×400 | ⬜ Not created | |
+| Screenshot 1 [REQUIRED] | 1280×800 | ✅ Ready | store-assets/screenshots/01-overview.png |
+| Screenshot 2 [RECOMMENDED] | 1280×800 | ✅ Ready | store-assets/screenshots/02-issue-details.png |
+| Screenshot 3 [RECOMMENDED] | 1280×800 | ✅ Ready | store-assets/screenshots/03-settings.png |
+| Screenshot 4 | 1280×800 | ✅ Ready | store-assets/screenshots/04-report.png |
+| Screenshot 5 | 1280×800 | ✅ Ready | store-assets/screenshots/05-help.png |
 | Small Promo Tile [RECOMMENDED] | 440×280 | ⬜ Not created | |
 | Marquee Promo Tile | 1400×560 | ⬜ Not created | |
 
@@ -65,6 +67,8 @@ English
 - **Screenshot 1** — The extension popup open beside a real web page, with red "X" markers overlaid on flagged images and the issue list showing counts per filter tab.
 - **Screenshot 2** — A single issue's detail modal ("Audit Report") open on the page, showing the specific problems for one image.
 - **Screenshot 3** — The Settings tab, showing the configurable limits (max file size, max alt length, max scrolling, colors).
+- **Screenshot 4** — An exported HTML report open in a browser tab (summary/grade and per-image cards).
+- **Screenshot 5** — The bundled Help page (Definitions & Fixes), grouped by priority.
 
 ## Permissions Justification
 
