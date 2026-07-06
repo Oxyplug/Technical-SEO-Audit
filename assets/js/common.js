@@ -146,7 +146,7 @@ class Common {
           await Common.setLearnMores(host);
           let utmLink = Common.learnMores['utm-link'];
           const [[firstKey]] = Object.entries(Common.learnMores['issues'][id]);
-          const href = `${utmLink}${firstKey}#${firstKey}`;
+          const href = `${utmLink}${firstKey}`;
           const learnMore = `<a class="oxyplug-icon-info" href="${href}" target="_blank"></a>`;
           li.append(span, message);
           li.insertAdjacentHTML('beforeend', learnMore);
@@ -307,7 +307,7 @@ class Common {
    */
   static async setLearnMores(host) {
     if (!Common.hostLearnMores || !Common.hostLearnMores[host]) {
-      const utmLink = `https://www.oxyplug.com/docs/oxy-seo-audit/audit-definitions/?utm_source=${host}&utm_medium=chrome-extension&utm_campaign=`;
+      const utmLink = `https://www.oxyplug.com/docs/oxy-image-audit/?utm_source=${host}&utm_medium=chrome-extension&utm_campaign=`;
       Common.learnMores = Common.hostLearnMores[host] = {
         'utm-link': utmLink,
         'issues': {

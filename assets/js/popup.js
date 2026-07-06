@@ -1225,7 +1225,6 @@ class Popup {
   static async loadLearnMore() {
     await Common.setLearnMores(Popup.currentHost);
     const learnEl = await Common.getElement('#learn');
-    const utmLink = Common.learnMores['utm-link'];
     const issues = Common.learnMores['issues'];
 
     // Clear any previously rendered summary (keep the heading)
@@ -1269,7 +1268,7 @@ class Popup {
     const moreP = document.createElement('p');
     moreP.className = 'learn-more-link';
     const a = document.createElement('a');
-    a.href = `${utmLink}all`;
+    a.href = chrome.runtime.getURL('help.html');
     a.target = '_blank';
     a.innerText = 'See full definitions & fixes →';
     moreP.append(a);
