@@ -38,7 +38,7 @@ Privacy:
 Your audit results and settings stay on your device. The extension does not collect, sell, or transmit your data to any server, and it has no analytics or tracking.
 
 Support:
-Questions or feedback? Visit https://oxyplug.com
+Questions or feedback? Visit https://www.oxyplug.com/contact-us/
 
 **Category** [REQUIRED]
 Developer Tools
@@ -108,8 +108,7 @@ documentation page in a new tab.
 ## Privacy Policy
 
 **Privacy Policy URL** [REQUIRED]
-<!-- Host PRIVACY_POLICY.md at a public URL (GitHub Pages works) and paste it here. -->
-_TODO: host PRIVACY_POLICY.md and add the live URL._
+https://github.com/Oxyplug/Oxyplug-Image-Audit/blob/main/PRIVACY_POLICY.md
 
 ## Distribution
 
@@ -122,13 +121,13 @@ _TODO: host PRIVACY_POLICY.md and add the live URL._
 Oxyplug
 
 **Contact Email** [REQUIRED]
-_TODO: add a monitored contact email (shown publicly on the listing)._
+support@oxyplug.com
 
 **Support URL / Email** [RECOMMENDED]
-https://oxyplug.com
+support@oxyplug.com
 
 **Homepage URL** [RECOMMENDED]
-https://oxyplug.com
+https://www.oxyplug.com/
 
 ## Version History
 
