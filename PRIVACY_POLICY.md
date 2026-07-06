@@ -64,4 +64,4 @@ If this policy changes, the "Last updated" date above will be revised.
 
 ## Contact
 
-For questions about this policy, visit https://oxyplug.com.
+For questions about this policy, email support@oxyplug.com or visit https://www.oxyplug.com/.
