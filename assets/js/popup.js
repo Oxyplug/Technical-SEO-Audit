@@ -1224,26 +1224,56 @@ class Popup {
    */
   static async loadLearnMore() {
     await Common.setLearnMores(Popup.currentHost);
-    const learnMoreList = await Common.getElement('#learn ul');
+    const learnEl = await Common.getElement('#learn');
     const utmLink = Common.learnMores['utm-link'];
-    for (const [_, messageObject] of Object.entries(Common.learnMores['issues'])) {
-      for (const [key, message] of Object.entries(messageObject)) {
+    const issues = Common.learnMores['issues'];
 
-        // li
-        const li = document.createElement('li');
-        li.innerText = message + ' ';
+    // Clear any previously rendered summary (keep the heading)
+    learnEl.querySelectorAll(':scope > :not(h2)').forEach((el) => el.remove());
 
-        // a
-        const a = document.createElement('a');
-        a.href = `${utmLink}${key}#${key}`;
-        a.target = '_blank';
-        a.innerText = 'Learn More';
+    // Intro
+    const intro = document.createElement('p');
+    intro.className = 'learn-intro';
+    intro.innerText = 'Oxyplug checks each image on the page for these SEO & performance issues, grouped by priority:';
+    learnEl.append(intro);
 
-        // append
-        li.append(a);
-        learnMoreList.append(li);
-      }
+    // Group the issue types by severity
+    const groups = {critical: [], warning: [], info: []};
+    for (const issueType of Object.keys(issues)) {
+      groups[Report.severityOf(issueType)].push(issueType);
     }
+
+    const groupLabels = {critical: 'Critical', warning: 'Warning', info: 'Info'};
+    for (const severity of ['critical', 'warning', 'info']) {
+      if (!groups[severity].length) continue;
+
+      const heading = document.createElement('h3');
+      heading.className = `learn-group ${severity}`;
+      heading.innerText = groupLabels[severity];
+      learnEl.append(heading);
+
+      const ul = document.createElement('ul');
+      ul.className = 'learn-list';
+      for (const issueType of groups[severity]) {
+        const li = document.createElement('li');
+        const strong = document.createElement('strong');
+        strong.innerText = Report.labelOf(issueType);
+        const definition = Object.values(issues[issueType]).join(' ');
+        li.append(strong, document.createTextNode(' — ' + definition));
+        ul.append(li);
+      }
+      learnEl.append(ul);
+    }
+
+    // Single link to the full documentation
+    const moreP = document.createElement('p');
+    moreP.className = 'learn-more-link';
+    const a = document.createElement('a');
+    a.href = `${utmLink}all`;
+    a.target = '_blank';
+    a.innerText = 'See full definitions & fixes →';
+    moreP.append(a);
+    learnEl.append(moreP);
   }
 
   /**

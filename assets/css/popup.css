@@ -615,6 +615,57 @@ nav > a {
   text-decoration: none;
 }
 
+.learn-intro {
+  margin: 10px 0;
+  font-size: 0.95em;
+  line-height: 1.4;
+  color: var(--oxyplug-darker-gray);
+}
+
+.learn-group {
+  display: inline-block;
+  margin: 14px 0 2px;
+  padding: 2px 12px;
+  border-radius: 999px;
+  font-size: 0.95em;
+  font-weight: 700;
+  color: var(--oxyplug-white-color);
+}
+
+.learn-group.critical {
+  background-color: var(--oxyplug-red);
+}
+
+.learn-group.warning {
+  background-color: var(--oxyplug-yellow);
+  color: var(--oxyplug-black);
+}
+
+.learn-group.info {
+  background-color: var(--oxyplug-aqua);
+}
+
+#learn .learn-list {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+
+#learn .learn-list li {
+  margin-bottom: 6px;
+  font-size: 0.9em;
+  line-height: 1.4;
+}
+
+.learn-more-link {
+  margin: 16px 0 4px;
+}
+
+.learn-more-link a {
+  color: var(--oxyplug-blue);
+  font-weight: 700;
+  text-decoration: none;
+}
+
 /* Info/LearnMore Page Ends Here */
 
 /* History Page Starts Here */
